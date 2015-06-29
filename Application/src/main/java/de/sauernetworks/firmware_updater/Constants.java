@@ -34,15 +34,29 @@ public interface Constants {
     int MESSAGE_NACK_RECEIVED = 7;
     int MESSAGE_INIT_COMPLETE = 8;
     int MESSAGE_INIT_FAILED = 9;
-    int MESSAGE_GET_COMMAND = 10;
+    int MESSAGE_GET_COMPLETE = 10;
     int MESSAGE_BL_VERSION = 11;
-    int MESSAGE_GET_ID_COMMAND = 12;
+    int MESSAGE_GID_COMPLETE = 12;
     int MESSAGE_GO_COMPLETE = 13;
+    int MESSAGE_READ_MEMORY_BYTE = 14;
+    int MESSAGE_READ_MEMORY_FAILED = 15;
+    int MESSAGE_READ_MEMORY_DONE = 16;
+    int MESSAGE_VERSION_COMPLETE = 17;
 
     // Key names received from the BluetoothChatService Handler
     String DEVICE_NAME = "device_name";
     String TOAST = "toast";
 
+    // TODO firmware check
+    int FIRMWARE_MIN_MINOR = 4;
+    int FIRMWARE_MIN_BUILD = 800;
+
+    String FIRMWARE_FILENAME = "/firmwaretest";
+    String FIRMWARE_EXTENSION = ".bin";
+
+    int STM32_READ_BYTE_COUNT = 256;
+    int STM32_READ_PAGE_COUNT = 16;
+    long STM32_START_ADDRESS = 0x08000000;
     byte STM32_PID = 0x33;
 
     byte STM32_INIT = 0x7F;
@@ -54,6 +68,7 @@ public interface Constants {
     byte STM32_GVRP_COMMAND = 0x01;
     byte STM32_GET_ID_COMMAND = 0x02;
     byte STM32_GO_COMMAND = 0x21;
+    byte STM32_READ_COMMAND = 0x11;
 
     long STM32_WAIT_TIMEOUT = 2000;
     long STM32_WAIT_INIT_CHECK = 100;

@@ -40,5 +40,7 @@
     <string name="button_gvrp">4. GVRP CMD</string>
     <string name="button_gid">5. GID CMD</string>
     <string name="button_gocmd">Reset</string>
+    <string name="button_read_memory">Read Memory</string>
+    <string name="button_download_firmware">Download Firmware</string>
 
 </resources>
