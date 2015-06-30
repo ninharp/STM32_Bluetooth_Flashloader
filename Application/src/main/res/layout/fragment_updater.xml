@@ -23,8 +23,7 @@
         android:orientation="horizontal"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:visibility="invisible">
+        android:layout_gravity="center_horizontal">
 
     <Button
         android:layout_width="wrap_content"
@@ -45,8 +44,7 @@
         android:orientation="horizontal"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:visibility="invisible">
+        android:layout_gravity="center_horizontal">
 
     <Button
         android:layout_width="wrap_content"
@@ -66,8 +64,7 @@
         android:orientation="horizontal"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:visibility="invisible">
+        android:layout_gravity="center_horizontal">
 
         <Button
             android:layout_width="wrap_content"
@@ -87,8 +84,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/button_read_memory"
-        android:id="@+id/button_read_memory"
-        android:visibility="invisible" />
+        android:id="@+id/button_read_memory"/>
 
     <Button
         android:layout_width="wrap_content"

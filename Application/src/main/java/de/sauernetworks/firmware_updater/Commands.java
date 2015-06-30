@@ -12,6 +12,28 @@ public class Commands {
     Command[] commands = new Command[cmd_count];
     byte[] active_commands = new byte[cmd_count];
 
+    private boolean init_in_progress = false;
+    private boolean init_complete = false;
+    private boolean get_in_progress = false;
+    private boolean get_complete = false;
+    private boolean gvrp_in_progress = false;
+    private boolean gvrp_complete = false;
+    private boolean gid_in_progress = false;
+    private boolean gid_complete = false;
+    private boolean go_in_progress = false;
+    private boolean go_complete = false;
+    private boolean read_in_progress = false;
+    private boolean read_complete = false;
+    private boolean version_in_progress = false;
+    private boolean version_complete = false;
+    private boolean auto_read_out = false;
+
+    private boolean command_running = false;
+
+    private int ver_major = 0;
+    private int ver_minor = 0;
+    private int ver_build = 0;
+
     public Commands() {
         commands[0] = new Command((byte) 0x00, "Get Command");
         commands[1] = new Command((byte) 0x01, "Get Version and Read Protection Status");
@@ -35,9 +57,9 @@ public class Commands {
     }
 
     public void addCommand(byte cmd) {
-        active_commands[cmd_active_count++] = cmd;
-        String temp = String.format("Added active command %02x on pos %d", cmd, (cmd_active_count-1));
-        Log.d(TAG, temp);
+        if (cmd_active_count <= active_commands.length-1)
+            active_commands[cmd_active_count++] = cmd;
+        //Log.d(TAG, String.format("Added active command %02x on pos %d", cmd, (cmd_active_count-1)));
     }
 
     public byte[] getActiveCommands() {
@@ -46,5 +68,169 @@ public class Commands {
 
     public int getActiveCommandCount() {
         return cmd_active_count;
+    }
+
+    public boolean isActiveCommand(byte cmd) {
+        if (active_commands.length > 0) {
+            for (byte active_command : active_commands) {
+                if (cmd == active_command)
+                    return true;
+            }
+        } else {
+            return false;
+        }
+        return false;
+    }
+
+    public boolean isRunning() {
+        return command_running;
+    }
+
+    public void setRunning(boolean running) {
+        this.command_running = running;
+    }
+
+    public int getVer_major() {
+        return ver_major;
+    }
+
+    public void setVer_major(int ver_major) {
+        this.ver_major = ver_major;
+    }
+
+    public int getVer_minor() {
+        return ver_minor;
+    }
+
+    public void setVer_minor(int ver_minor) {
+        this.ver_minor = ver_minor;
+    }
+
+    public int getVer_build() {
+        return ver_build;
+    }
+
+    public void setVer_build(int ver_build) {
+        this.ver_build = ver_build;
+    }
+
+    public boolean isAuto_read_out() {
+        return auto_read_out;
+    }
+
+    public void setAuto_read_out(boolean auto_read_out) {
+        this.auto_read_out = auto_read_out;
+    }
+
+    public boolean isGid_complete() {
+        return gid_complete;
+    }
+
+    public void setGid_complete(boolean gid_complete) {
+        this.gid_complete = gid_complete;
+    }
+
+    public boolean isGid_in_progress() {
+        return gid_in_progress;
+    }
+
+    public void setGid_in_progress(boolean gid_in_progress) {
+        this.gid_in_progress = gid_in_progress;
+    }
+
+    public boolean isGvrp_complete() {
+        return gvrp_complete;
+    }
+
+    public void setGvrp_complete(boolean gvrp_complete) {
+        this.gvrp_complete = gvrp_complete;
+    }
+
+    public boolean isGvrp_in_progress() {
+        return gvrp_in_progress;
+    }
+
+    public void setGvrp_in_progress(boolean gvrp_in_progress) {
+        this.gvrp_in_progress = gvrp_in_progress;
+    }
+
+    public boolean isGet_in_progress() {
+        return get_in_progress;
+    }
+
+    public void setGet_in_progress(boolean get_in_progress) {
+        this.get_in_progress = get_in_progress;
+    }
+
+    public boolean isGet_complete() {
+        return get_complete;
+    }
+
+    public void setGet_complete(boolean get_complete) {
+        this.get_complete = get_complete;
+    }
+
+    public boolean isInit_in_progress() {
+        return init_in_progress;
+    }
+
+    public void setInit_in_progress(boolean init_in_progress) {
+        this.init_in_progress = init_in_progress;
+    }
+
+    public boolean isInit_complete() {
+        return init_complete;
+    }
+
+    public void setInit_complete(boolean init_complete) {
+        this.init_complete = init_complete;
+    }
+
+    public boolean isGo_in_progress() {
+        return go_in_progress;
+    }
+
+    public void setGo_in_progress(boolean go_in_progress) {
+        this.go_in_progress = go_in_progress;
+    }
+
+    public boolean isGo_complete() {
+        return go_complete;
+    }
+
+    public void setGo_complete(boolean go_complete) {
+        this.go_complete = go_complete;
+    }
+
+    public boolean isRead_in_progress() {
+        return read_in_progress;
+    }
+
+    public void setRead_in_progress(boolean read_in_progress) {
+        this.read_in_progress = read_in_progress;
+    }
+
+    public boolean isRead_complete() {
+        return read_complete;
+    }
+
+    public void setRead_complete(boolean read_complete) {
+        this.read_complete = read_complete;
+    }
+
+    public boolean isVersion_in_progress() {
+        return version_in_progress;
+    }
+
+    public void setVersion_in_progress(boolean version_in_progress) {
+        this.version_in_progress = version_in_progress;
+    }
+
+    public boolean isVersion_complete() {
+        return version_complete;
+    }
+
+    public void setVersion_complete(boolean version_complete) {
+        this.version_complete = version_complete;
     }
 }

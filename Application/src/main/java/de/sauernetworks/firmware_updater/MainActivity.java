@@ -17,17 +17,17 @@
 
 package de.sauernetworks.firmware_updater;
 
-import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentTransaction;
 import android.util.Log;
 import android.view.Menu;
-import android.view.MenuItem;
 
 public class MainActivity extends FragmentActivity {
 
     public static final String TAG = "STM32_FW_UpdaterMain";
+
+    public static Commands commands = new Commands();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,6 +37,7 @@ public class MainActivity extends FragmentActivity {
         if (savedInstanceState == null) {
             FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
             BluetoothUpdaterFragment fragment = new BluetoothUpdaterFragment();
+            fragment.setCommands(commands);
             transaction.replace(R.id.updater_fragment, fragment);
             transaction.commit();
         }

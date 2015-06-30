@@ -59,6 +59,7 @@ public interface Constants {
     long STM32_START_ADDRESS = 0x08000000;
     byte STM32_PID = 0x33;
     String STM32_NAME_PATTERN = "MagicLightV2-\\w\\w\\w\\w";
+    int STM32_READ_TIMEOUT = 2000;
 
     byte STM32_INIT = 0x7F;
 
@@ -71,7 +72,4 @@ public interface Constants {
     byte STM32_GO_COMMAND = 0x21;
     byte STM32_READ_COMMAND = 0x11;
 
-    long STM32_WAIT_TIMEOUT = 2000;
-    long STM32_WAIT_INIT_CHECK = 100;
-    long STM32_WAIT_CMD_CHECK = 5; // Must be smaller than STM32_WAIT_TIMEOUT
 }
