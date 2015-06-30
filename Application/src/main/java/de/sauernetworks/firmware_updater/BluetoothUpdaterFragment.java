@@ -60,6 +60,7 @@ public class BluetoothUpdaterFragment extends Fragment {
     private Button mGidButton;
     private Button mGoCmdButton;
     private Button mReadMemoryButton;
+    private Button mCheckUpdateButton;
     private Button mDownloadFirmwareButton;
     private TextView mLogTextView;
 
@@ -169,6 +170,7 @@ public class BluetoothUpdaterFragment extends Fragment {
         mGoCmdButton = (Button) view.findViewById(R.id.button_gocmd);
         mReadMemoryButton = (Button) view.findViewById(R.id.button_read_memory);
         mDownloadFirmwareButton = (Button) view.findViewById(R.id.button_download_firmware);
+        mCheckUpdateButton = (Button) view.findViewById(R.id.button_check_version);
         mLogTextView = (TextView) view.findViewById(R.id.list_log);
         Log("Started!\n");
     }
@@ -186,8 +188,10 @@ public class BluetoothUpdaterFragment extends Fragment {
             @Override
             public void onClick(View v) {
                 mBluetoothService.setAuto_read_out(false);
-                Log.d(TAG, "Retrieving current Firmware Version");
-                mBluetoothService.getVersion();
+                if (mBluetoothService.getVer_major() == 0) {
+                    Log.d(TAG, "Retrieving current Firmware Version");
+                    mBluetoothService.getVersion();
+                }
                 Log.d(TAG, "Sending Bootloader jump command");
                 Log("Sending Bootloader jump command");
                 mBluetoothService.send_ml_packet(0x03, "y 0 0");
@@ -261,6 +265,15 @@ public class BluetoothUpdaterFragment extends Fragment {
                 mBluetoothService.setAuto_read_out(false);
                 mBluetoothService.readMemory();
                 createDialog(DIALOG_DOWNLOAD_PROGRESS);
+            }
+        });
+
+        mCheckUpdateButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mBluetoothService.setAuto_read_out(true);
+                Log("Getting running Firmware Version");
+                mBluetoothService.getVersion();
             }
         });
 
@@ -361,6 +374,14 @@ public class BluetoothUpdaterFragment extends Fragment {
                     switch (msg.arg1) {
                         case BluetoothService.STATE_CONNECTED:
                             setStatus(getString(R.string.title_connected_to, mConnectedDeviceName));
+                            final Handler handler = new Handler();
+                            handler.postDelayed(new Runnable() {
+                                @Override
+                                public void run() {
+                                    Log.d(TAG, "Retrieving current Firmware Version");
+                                    mBluetoothService.getVersion();
+                                }
+                            }, 100);
                             break;
                         case BluetoothService.STATE_CONNECTING:
                             setStatus(R.string.title_connecting);

@@ -58,6 +58,7 @@ public interface Constants {
     int STM32_READ_PAGE_COUNT = 16;
     long STM32_START_ADDRESS = 0x08000000;
     byte STM32_PID = 0x33;
+    String STM32_NAME_PATTERN = "MagicLightV2-\\w\\w\\w\\w";
 
     byte STM32_INIT = 0x7F;
 

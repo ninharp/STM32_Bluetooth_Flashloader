@@ -42,5 +42,6 @@
     <string name="button_gocmd">Reset</string>
     <string name="button_read_memory">Read Memory</string>
     <string name="button_download_firmware">Download Firmware</string>
+    <string name="button_check_version">Check for Update</string>
 
 </resources>
