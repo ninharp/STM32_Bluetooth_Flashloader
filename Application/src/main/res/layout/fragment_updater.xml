@@ -80,23 +80,51 @@
 
     </LinearLayout>
 
-    <Button
+    <LinearLayout
+        android:orientation="horizontal"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/button_read_memory"
-        android:id="@+id/button_read_memory"/>
+        android:layout_gravity="center_horizontal">
 
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/button_check_version"
-        android:id="@+id/button_check_version" />
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/button_read_memory"
+            android:id="@+id/button_read_memory"/>
 
-    <Button
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/button_erase_memory"
+            android:id="@+id/button_erase_memory"/>
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/button_write_memory"
+            android:id="@+id/button_write_memory"/>
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:orientation="horizontal"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/button_download_firmware"
-        android:id="@+id/button_download_firmware" />
+        android:layout_gravity="center_horizontal">
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/button_check_version"
+            android:id="@+id/button_check_version" />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/button_download_firmware"
+            android:id="@+id/button_download_firmware" />
+
+    </LinearLayout>
 
     <ScrollView
         android:layout_width="match_parent"

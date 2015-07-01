@@ -26,6 +26,10 @@ public class Commands {
     private boolean read_complete = false;
     private boolean version_in_progress = false;
     private boolean version_complete = false;
+    private boolean erase_in_progress = false;
+    private boolean erase_complete = false;
+    private boolean write_in_progress = false;
+    private boolean write_complete = false;
     private boolean auto_read_out = false;
 
     private boolean command_running = false;
@@ -232,5 +236,37 @@ public class Commands {
 
     public void setVersion_complete(boolean version_complete) {
         this.version_complete = version_complete;
+    }
+
+    public boolean isErase_complete() {
+        return erase_complete;
+    }
+
+    public void setErase_complete(boolean erase_complete) {
+        this.erase_complete = erase_complete;
+    }
+
+    public boolean isErase_in_progress() {
+        return erase_in_progress;
+    }
+
+    public void setErase_in_progress(boolean erase_in_progress) {
+        this.erase_in_progress = erase_in_progress;
+    }
+
+    public boolean isWrite_in_progress() {
+        return write_in_progress;
+    }
+
+    public void setWrite_in_progress(boolean write_in_progress) {
+        this.write_in_progress = write_in_progress;
+    }
+
+    public boolean isWrite_complete() {
+        return write_complete;
+    }
+
+    public void setWrite_complete(boolean write_complete) {
+        this.write_complete = write_complete;
     }
 }

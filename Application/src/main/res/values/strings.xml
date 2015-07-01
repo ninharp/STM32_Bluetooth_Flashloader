@@ -43,5 +43,7 @@
     <string name="button_read_memory">Read Memory</string>
     <string name="button_download_firmware">Download Firmware</string>
     <string name="button_check_version">Check for Update</string>
+    <string name="button_erase_memory">Erase Memory</string>
+    <string name="button_write_memory">Write Memory</string>
 
 </resources>

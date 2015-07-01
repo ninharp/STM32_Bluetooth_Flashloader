@@ -21,12 +21,14 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
 
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -295,7 +297,6 @@ public class BluetoothService {
             Toast.makeText(this.getActivity(), R.string.not_connected, Toast.LENGTH_SHORT).show();
             return;
         }*/
-
         // Get the message bytes and tell the BluetoothChatService to write
         byte[] send = new byte[1];
         send[0] = b;
@@ -318,6 +319,10 @@ public class BluetoothService {
         mCommands.setGo_in_progress(true);
     }
 
+    public void sendEraseCmd() {
+        mCommands.setErase_in_progress(true);
+    }
+
     public void sendInit() {
         mCommands.setInit_in_progress(true);
     }
@@ -328,6 +333,10 @@ public class BluetoothService {
 
     public void getVersion() {
         mCommands.setVersion_in_progress(true);
+    }
+
+    public void writeMemory() {
+        mCommands.setWrite_in_progress(true);
     }
 
     /**
@@ -518,7 +527,7 @@ public class BluetoothService {
         if (mCommands.getVer_major() > 0) {
             String path = mContext.getFilesDir().toString() + Constants.FIRMWARE_FILENAME;
             String filepath = path + String.format("_%d_%d_build%d", mCommands.getVer_major(), mCommands.getVer_minor(), mCommands.getVer_build()) + Constants.FIRMWARE_EXTENSION;
-            Log.d(TAG, path);
+            //Log.d(TAG, path);
             FileOutputStream stream = null;
             try {
                 stream = new FileOutputStream(filepath, overwrite);
@@ -593,9 +602,6 @@ public class BluetoothService {
             // Keep listening to the InputStream while connected
             while (true) {
                 try {
-                    // Read from the InputStream
-                    //mmInStream.read(buffer);
-
                     if (mCommands.isInit_in_progress()) {
                         mCommands.setRunning(true);
                         Log.d(TAG, "INIT in Progress!");
@@ -772,6 +778,7 @@ public class BluetoothService {
                                     mCommands.setGo_in_progress(false);
                                     mCommands.setGet_complete(false);
                                     mCommands.setInit_complete(false);
+                                    mHandler.obtainMessage(Constants.MESSAGE_GO_COMPLETE).sendToTarget();
                                 } else if (buffer[0] == Constants.STM32_NACK) {
                                     Log.d(TAG, "GO: NACK Received!");
                                     mCommands.setGo_in_progress(false);
@@ -843,13 +850,12 @@ public class BluetoothService {
                         Log.d(TAG, "READ Command in Progress!");
                         if (mCommands.isGet_complete() && mCommands.isActiveCommand(Constants.STM32_READ_COMMAND)) {
                             long address = Constants.STM32_START_ADDRESS;
-                            for (int page = 0; page < Constants.STM32_READ_PAGE_COUNT; page++) {
+                            for (int page = 0; page < Constants.STM32_PAGE_COUNT; page++) {
                                 int check = (byte) (Constants.STM32_READ_COMMAND ^ (byte) (0xFF));
                                 sendByte(Constants.STM32_READ_COMMAND);
                                 sendByte((byte) (check));
                                 readTimeout(buffer, Constants.STM32_READ_TIMEOUT);
                                 if (buffer[0] == Constants.STM32_ACK) {
-                                    address += Constants.STM32_READ_BYTE_COUNT;
                                     byte[] buf = new byte[5];
                                     buf[0] = (byte) (address >> 24);
                                     buf[1] = (byte) ((address >> 16) & 0xFF);
@@ -858,40 +864,46 @@ public class BluetoothService {
                                     buf[4] = (byte) (buf[0] ^ buf[1] ^ buf[2] ^ buf[3]);
                                     write(buf);
                                     readTimeout(buffer, Constants.STM32_READ_TIMEOUT);
+                                    address += Constants.STM32_BYTE_COUNT;
                                     if (buffer[0] == Constants.STM32_ACK) {
-                                        sendByte((byte) 0xFF);
-                                        sendByte((byte) 0x00);
+                                        sendByte((byte)(Constants.STM32_BYTE_COUNT -1));
+                                        check = (byte) ((byte)(Constants.STM32_BYTE_COUNT -1) ^ (byte) (0xFF));
+                                        sendByte((byte) (check));
                                         mmInStream.read(buffer);
                                         if (buffer[0] == Constants.STM32_ACK) {
                                             int[] dataBuf = new int[2];
                                             dataBuf[0] = page;
-                                            byte[] data = new byte[Constants.STM32_READ_BYTE_COUNT];
+                                            byte[] data = new byte[Constants.STM32_BYTE_COUNT];
                                             for (int i = 0; i < data.length; i++) {
-                                                mmInStream.read(buffer);
-                                                data[i] = buffer[0];
-                                                dataBuf[1] = i;
-                                                mHandler.obtainMessage(Constants.MESSAGE_READ_MEMORY_BYTE, dataBuf.length, -1, dataBuf).sendToTarget();
-                                                //Log.d(TAG, "Read Data Byte "+String.valueOf(dataBuf[1])+" on page "+String.valueOf(dataBuf[0]));
+                                                int bytes = mmInStream.read(buffer);
+                                                if (bytes > 0) {
+                                                    data[i] = buffer[0];
+                                                    dataBuf[1] = i;
+                                                    mHandler.obtainMessage(Constants.MESSAGE_READ_MEMORY_BYTE, dataBuf.length, -1, dataBuf).sendToTarget();
+                                                    //Log.d(TAG, "Read Data Byte "+String.valueOf(dataBuf[1])+" on page "+String.valueOf(dataBuf[0]));
+                                                }
                                             }
-
                                             if (page == 0)
                                                 writeToFile(data, false);
                                             else
                                                 writeToFile(data, true);
                                         }
                                     } else {
-                                        Log.d(TAG, "READ: Error on Read PAGE "+String.valueOf(page));
+                                        Log.d(TAG, "READ: Address Error on Read PAGE "+String.valueOf(page)+" ["+String.format("0x%02x", buffer[0])+"]");
                                         mHandler.obtainMessage(Constants.MESSAGE_READ_MEMORY_FAILED).sendToTarget();
                                         mCommands.setRead_in_progress(false);
+                                        mCommands.setGo_in_progress(true);
+                                        break;
                                     }
                                 } else {
-                                    Log.d(TAG, "READ: Error on Read PAGE "+String.valueOf(page));
+                                    Log.d(TAG, "READ: Command Error on Read PAGE "+String.valueOf(page)+" ["+String.format("0x%02x", buffer[0])+"]");
                                     mHandler.obtainMessage(Constants.MESSAGE_READ_MEMORY_FAILED).sendToTarget();
                                     mCommands.setRead_in_progress(false);
+                                    mCommands.setGo_in_progress(true);
+                                    break;
                                 }
                             }
-
-                            mHandler.obtainMessage(Constants.MESSAGE_READ_MEMORY_DONE).sendToTarget();
+                            mHandler.obtainMessage(Constants.MESSAGE_READ_MEMORY_COMPLETE).sendToTarget();
                             Log.d(TAG, "READ: Command success!");
                             mCommands.setRead_in_progress(false);
                         } else {
@@ -899,110 +911,197 @@ public class BluetoothService {
                             if (!mCommands.isGet_complete())
                                 Log.d(TAG, "READ: Error! GET Command not completed!");
                             else
-                                Log.d(TAG, "READ: Error! Read Memory Command not in instruction set!");
+                                Log.d(TAG, "READ: Error! Read Memory Command not in instruction set! (Maybe readout protected)");
                         }
                         mCommands.setRunning(false);
                     }
 
+                    if (mCommands.isErase_in_progress()) {
+                        mCommands.setRunning(true);
+                        Log.d(TAG, "EER Command in Progress!");
+                        if (mCommands.isGet_complete() && mCommands.isActiveCommand(Constants.STM32_EER_COMMAND)) {
+                            int check = (byte) (Constants.STM32_EER_COMMAND ^ (byte) (0xFF));
+                            sendByte(Constants.STM32_EER_COMMAND);
+                            sendByte((byte) (check));
+                            readTimeout(buffer, Constants.STM32_READ_TIMEOUT);
+                            if (buffer[0] == Constants.STM32_ACK) {
+                                byte[] eerBuf = new byte[3];
+                                eerBuf[0] = (byte)0xFF;
+                                eerBuf[1] = (byte)0xFF;
+                                eerBuf[2] = (byte)(eerBuf[0] ^ eerBuf[1]);
+                                write(eerBuf);
+                                readTimeout(buffer, Constants.STM32_READ_TIMEOUT);
+                                if (buffer[0] == Constants.STM32_ACK) {
+                                    mCommands.setErase_in_progress(false);
+                                    mCommands.setErase_complete(true);
+                                    mHandler.obtainMessage(Constants.MESSAGE_ERASE_MEMORY_COMPLETE).sendToTarget();
+                                    Log.d(TAG, "EER: Erase of Memory completed!");
+                                } else if (buffer[0] == Constants.STM32_NACK) {
+                                    mCommands.setErase_in_progress(false);
+                                } else {
+                                    Log.d(TAG, "EER: No valid byte received! (" + String.format("0x%02x", buffer[0]) + ")");
+                                    mCommands.setErase_in_progress(false);
+                                }
+                            } else if (buffer[0] == Constants.STM32_NACK) {
+                                Log.d(TAG, "EER: NACK Received!");
+                                mCommands.setErase_in_progress(false);
+                            } else {
+                                Log.d(TAG, "EER: No valid byte received! (" + String.format("0x%02x", buffer[0]) + ")");
+                                mCommands.setErase_in_progress(false);
+                            }
+                        } else {
+                            mCommands.setErase_in_progress(false);
+                            if (!mCommands.isGet_complete())
+                                Log.d(TAG, "EER: Error! GET Command not completed!");
+                            else
+                                Log.d(TAG, "EER: Error! Extended Erase Command not in instruction set!");
+                        }
+                        mCommands.setRunning(false);
+                    }
 
-                    /*
-                    if (isRead_in_progress() && isRead_read_bytes()) {
-                        //Log.d(TAG, "In READ data");
-                        if (buffer[0] == Constants.STM32_ACK) {
-                            byte[] data = new byte[Constants.STM32_READ_BYTE_COUNT];
-                            boolean error = false;
+                    if (mCommands.isWrite_in_progress()) {
+                        mCommands.setRunning(true);
+                        boolean error = false;
+                        Log.d(TAG, "WRITE Command in Progress!");
+                        if (mCommands.isGet_complete() && mCommands.isActiveCommand(Constants.STM32_WRITE_COMMAND)) {
                             long address = Constants.STM32_START_ADDRESS;
-                            for (int page = 0; page < Constants.STM32_READ_PAGE_COUNT; page++) {
-                                //String add = String.format("0x%08x", address);
-                                //Log.d(TAG, "Read address "+add+" on page "+String.valueOf(page));
-                                if (page > 0) {
-                                    //Log.d(TAG, "Read: Not first reading");
-                                    int check = (byte) (Constants.STM32_READ_COMMAND ^ (byte) (0xFF));
-                                    sendByte(Constants.STM32_READ_COMMAND);
-                                    sendByte((byte) (check));
-                                    mmInStream.read(buffer);
+                            BufferedInputStream firmwareBuf = null;
+                            String path = mContext.getFilesDir().toString() + Constants.FIRMWARE_FILENAME;
+                            String filepath = path + "_1_4_build804" + Constants.FIRMWARE_EXTENSION;
+                            File file = new File(filepath);
+                            long size = file.length();
+                            Log.d(TAG, String.format("WRITE: Firmware File Size: %d bytes (%d bytes)", size, (Constants.STM32_BYTE_COUNT * Constants.STM32_PAGE_COUNT)));
+                            int firmwareOffset = 0;
+                            byte firmwareChecksum;
+                            //int firmwareSize = (int) file.length();
+                            //byte[] firmwareData = new byte[firmwareSize];
+                            byte[] firmwareData = new byte[Constants.STM32_BYTE_COUNT];
+                            try {
+                                firmwareBuf = new BufferedInputStream(new FileInputStream(file));
+                            } catch (FileNotFoundException e) {
+                                Log.d(TAG, "WRITE: Cannot find/read firmware file");
+                                mCommands.setWrite_in_progress(false);
+                                e.printStackTrace();
+                                break;
+                            }
+                            int check = (byte) (Constants.STM32_WRITE_COMMAND ^ (byte) (0xFF));
+                            for (int page = 0; page < Constants.STM32_PAGE_COUNT; page++) {
+                                try {
+                                    Thread.sleep(100);
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                                sendByte(Constants.STM32_WRITE_COMMAND);
+                                sendByte((byte) (check));
+                                readTimeout(buffer, Constants.STM32_READ_TIMEOUT);
+                                if (buffer[0] == Constants.STM32_ACK) {
+                                    byte[] buf = new byte[5];
+                                    buf[0] = (byte) (address >> 24);
+                                    buf[1] = (byte) ((address >> 16) & 0xFF);
+                                    buf[2] = (byte) ((address >> 8) & 0xFF);
+                                    buf[3] = (byte) (address & 0xFF);
+                                    buf[4] = (byte) (buf[0] ^ buf[1] ^ buf[2] ^ buf[3]);
+                                    write(buf);
+                                    readTimeout(buffer, Constants.STM32_READ_TIMEOUT);
+                                    address += Constants.STM32_BYTE_COUNT;
                                     if (buffer[0] == Constants.STM32_ACK) {
-                                        //Log.d(TAG, "READ ACK CMD PAGE "+String.valueOf(page));
-                                        address += Constants.STM32_READ_BYTE_COUNT;
-                                        byte[] buf = new byte[5];
-                                        buf[0] = (byte) (address >> 24);
-                                        buf[1] = (byte) ((address >> 16) & 0xFF);
-                                        buf[2] = (byte) ((address >> 8) & 0xFF);
-                                        buf[3] = (byte) (address & 0xFF);
-                                        buf[4] = (byte) (buf[0] ^ buf[1] ^ buf[2] ^ buf[3]);
-                                        write(buf);
-                                        mmInStream.read(buffer);
-                                        if (buffer[0] == Constants.STM32_ACK) {
-                                            //Log.d(TAG, "READ ACK PAGE "+String.valueOf(page));
+                                        int[] dataBuf = new int[2];
+                                        dataBuf[0] = page;
+                                        int countData = firmwareBuf.read(firmwareData, 0, firmwareData.length);
+                                        if (countData < firmwareData.length) {
+                                            sendByte((byte) (countData)); // write 256 bytes
+                                            firmwareChecksum = (byte) (countData);
+                                            page = Constants.STM32_PAGE_COUNT;
+                                        } else if (countData == firmwareData.length) {
+                                            sendByte((byte) (Constants.STM32_BYTE_COUNT - 1)); // write 256 bytes
+                                            firmwareChecksum = (byte) (Constants.STM32_BYTE_COUNT - 1);
                                         } else {
-                                            Log.d(TAG, "READ NACK PAGE "+String.valueOf(page));
                                             error = true;
+                                            Log.d(TAG, "WRITE: File read Error on Write PAGE " + String.valueOf(page) + " [" + String.format("0x%02x", buffer[0]) + "]");
+                                            mHandler.obtainMessage(Constants.MESSAGE_WRITE_MEMORY_FAILED).sendToTarget();
+                                            mCommands.setWrite_in_progress(false);
+                                            //mCommands.setGo_in_progress(true);
+                                            if (firmwareBuf != null)
+                                                firmwareBuf.close();
+                                            break;
                                         }
+
+                                        //
+                                        for (int i = 0; i < countData; i++) {
+                                            firmwareChecksum = (byte) (firmwareChecksum ^ firmwareData[i]);
+                                            dataBuf[1] = i;
+                                            //Log.d(TAG, "Read Data Byte "+String.valueOf(dataBuf[1])+" on page "+String.valueOf(dataBuf[0]));
+                                        }
+                                        write(firmwareData);
+                                        sendByte(firmwareChecksum);
+                                        readTimeout(buffer, Constants.STM32_READ_TIMEOUT);
+                                        if (buffer[0] == Constants.STM32_ACK) {
+                                            //Log.d(TAG, "WRITE: Written Offset "+String.valueOf(firmwareOffset)+" successfully");
+                                        } else {
+                                            error = true;
+                                            Log.d(TAG, "WRITE: Error on Writing Offset "+String.valueOf(firmwareOffset));
+                                            mHandler.obtainMessage(Constants.MESSAGE_WRITE_MEMORY_FAILED).sendToTarget();
+                                            mCommands.setWrite_in_progress(false);
+                                            //mCommands.setGo_in_progress(true);
+                                            if (firmwareBuf != null)
+                                                firmwareBuf.close();
+                                            break;
+                                        }
+                                        mHandler.obtainMessage(Constants.MESSAGE_WRITE_MEMORY_BYTE, dataBuf.length, -1, dataBuf).sendToTarget();
+                                        firmwareOffset += firmwareData.length;
+                                        /*
+                                        if (countData == firmwareData.length) {
+
+                                        } else {
+                                            error = true;
+                                            Log.d(TAG, "WRITE: Firmware File Error on Write PAGE "+String.valueOf(page)+" ["+String.format("0x%02x", buffer[0])+"]");
+                                            mHandler.obtainMessage(Constants.MESSAGE_WRITE_MEMORY_FAILED).sendToTarget();
+                                            mCommands.setWrite_in_progress(false);
+                                            //mCommands.setGo_in_progress(true);
+                                            if (firmwareBuf != null)
+                                                firmwareBuf.close();
+                                            break;
+                                        }
+                                        */
                                     } else {
                                         error = true;
-                                        Log.d(TAG, "READ NACK CMD PAGE "+String.valueOf(page));
-                                    }
-                                }
-
-                                if (!error) {
-                                    // TODO byte count here
-                                    sendByte((byte) 0xFF);
-                                    sendByte((byte) 0x00);
-                                    mmInStream.read(buffer);
-                                    if (buffer[0] == Constants.STM32_ACK) {
-                                        if (page == 0)
-                                            mmInStream.read(buffer); // dunno why, but ACK wont be cleared from stream on first read
-                                        int[] buf = new int[2];
-                                        buf[0] = page;
-                                        for (int i = 0; i < data.length; i++) {
-                                            mmInStream.read(buffer);
-                                            data[i] = buffer[0];
-                                            buf[1] = i;
-                                            mHandler.obtainMessage(Constants.MESSAGE_READ_MEMORY_BYTE, buf.length, -1, buf).sendToTarget();
-                                            //Log.d(TAG, "Read Data Byte "+String.valueOf(buf[1])+" on page "+String.valueOf(buf[0]));
-                                        }
-                                        if (page == 0)
-                                            writeToFile(data, false);
-                                        else
-                                            writeToFile(data, true);
-
-                                        //mHandler.obtainMessage(Constants.MESSAGE_GET_COMPLETE, cmd_count, -1, get_buffer).sendToTarget();
-                                        //Log.d(TAG, "READ Command success! Page:" + String.valueOf(page));
-                                    } else {
-                                        Log.d(TAG, "READ Command failed! Page:" + String.valueOf(page));
-                                        mHandler.obtainMessage(Constants.MESSAGE_READ_MEMORY_FAILED).sendToTarget();
+                                        Log.d(TAG, "WRITE: Address Error on Write PAGE "+String.valueOf(page)+" ["+String.format("0x%02x", buffer[0])+"]");
+                                        mHandler.obtainMessage(Constants.MESSAGE_WRITE_MEMORY_FAILED).sendToTarget();
+                                        mCommands.setWrite_in_progress(false);
+                                        //mCommands.setGo_in_progress(true);
+                                        if (firmwareBuf != null)
+                                            firmwareBuf.close();
+                                        break;
                                     }
                                 } else {
-                                    mHandler.obtainMessage(Constants.MESSAGE_READ_MEMORY_FAILED).sendToTarget();
+                                    error = true;
+                                    Log.d(TAG, "WRITE: Command Error on Write PAGE "+String.valueOf(page)+" ["+String.format("0x%02x", buffer[0])+"]");
+                                    mHandler.obtainMessage(Constants.MESSAGE_WRITE_MEMORY_FAILED).sendToTarget();
+                                    mCommands.setWrite_in_progress(false);
+                                    //mCommands.setGo_in_progress(true);
+                                    if (firmwareBuf != null)
+                                        firmwareBuf.close();
+                                    break;
                                 }
                             }
-                            mHandler.obtainMessage(Constants.MESSAGE_READ_MEMORY_DONE).sendToTarget();
-                            Log.d(TAG, "READ Command success!");
-                            setRead_in_progress(false);
-                            setRead_read_bytes(false);
-                        } else if (buffer[0] == Constants.STM32_NACK) {
-                            setGet_in_progress(false);
-                            setGet_read_bytes(false);
-                            Log.d(TAG, "READ Command failed! Address problem");
-                        }
-                    } else {
-                        if (buffer[0] == Constants.STM32_ACK) {
-                            setAck_received(true);
-                            Log.d(TAG, "ACK");
-                            mHandler.obtainMessage(Constants.MESSAGE_ACK_RECEIVED)
-                                    .sendToTarget();
-                        } else if (buffer[0] == Constants.STM32_NACK) {
-                            setNack_received(false);
-                            Log.d(TAG, "NACK");
-                            mHandler.obtainMessage(Constants.MESSAGE_NACK_RECEIVED)
-                                    .sendToTarget();
+                            if (firmwareBuf != null)
+                                firmwareBuf.close();
+                            if (!error) {
+                                mCommands.setWrite_complete(true);
+                                mHandler.obtainMessage(Constants.MESSAGE_WRITE_MEMORY_COMPLETE).sendToTarget();
+                                Log.d(TAG, "WRITE: Command success!");
+                                mCommands.setGo_in_progress(true);
+                            }
+                            mCommands.setWrite_in_progress(false);
                         } else {
-                            String readMessage = new String(); //readBuf, 0, msg.arg1);
-                            readMessage = String.format("0x%02x", buffer[0]);
-                            Log.d(TAG, "Read: " + readMessage);
+                            mCommands.setWrite_in_progress(false);
+                            if (!mCommands.isGet_complete())
+                                Log.d(TAG, "WRITE: Error! GET Command not completed!");
+                            else
+                                Log.d(TAG, "WRITE: Error! Write Memory Command not in instruction set! (Maybe write protected!)");
                         }
+                        mCommands.setRunning(false);
                     }
-                    */
 
                 } catch (IOException e) {
                     Log.e(TAG, "disconnected", e);
@@ -1020,6 +1119,9 @@ public class BluetoothService {
          * @param buffer The bytes to write
          */
         public void write(byte[] buffer) {
+            /*for (int i = 0; i < buffer.length; i++) {
+                Log.d(TAG, String.format("write(0x%02x)", buffer[i]));
+            }*/
             try {
                 mmOutStream.write(buffer);
 

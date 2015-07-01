@@ -20,9 +20,6 @@ package de.sauernetworks.firmware_updater;
  * Defines several constants used between {@link BluetoothService} and the UI.
  */
 public interface Constants {
-
-    int DEBUG = 1;
-
     // Message types sent from the BluetoothChatService Handler
     int MESSAGE_STATE_CHANGE = 1;
     int MESSAGE_READ = 2;
@@ -40,8 +37,12 @@ public interface Constants {
     int MESSAGE_GO_COMPLETE = 13;
     int MESSAGE_READ_MEMORY_BYTE = 14;
     int MESSAGE_READ_MEMORY_FAILED = 15;
-    int MESSAGE_READ_MEMORY_DONE = 16;
+    int MESSAGE_READ_MEMORY_COMPLETE = 16;
     int MESSAGE_VERSION_COMPLETE = 17;
+    int MESSAGE_WRITE_MEMORY_BYTE = 18;
+    int MESSAGE_WRITE_MEMORY_FAILED = 19;
+    int MESSAGE_WRITE_MEMORY_COMPLETE = 20;
+    int MESSAGE_ERASE_MEMORY_COMPLETE = 21;
 
     // Key names received from the BluetoothChatService Handler
     String DEVICE_NAME = "device_name";
@@ -51,11 +52,11 @@ public interface Constants {
     int FIRMWARE_MIN_MINOR = 4;
     int FIRMWARE_MIN_BUILD = 800;
 
-    String FIRMWARE_FILENAME = "/firmwaretest";
+    String FIRMWARE_FILENAME = "/magiclight";
     String FIRMWARE_EXTENSION = ".bin";
 
-    int STM32_READ_BYTE_COUNT = 256;
-    int STM32_READ_PAGE_COUNT = 16;
+    int STM32_BYTE_COUNT = 256;
+    int STM32_PAGE_COUNT = 384; //384; // Need 2048 for full
     long STM32_START_ADDRESS = 0x08000000;
     byte STM32_PID = 0x33;
     String STM32_NAME_PATTERN = "MagicLightV2-\\w\\w\\w\\w";
@@ -69,7 +70,9 @@ public interface Constants {
     byte STM32_GET_COMMAND = 0x00;
     byte STM32_GVRP_COMMAND = 0x01;
     byte STM32_GET_ID_COMMAND = 0x02;
-    byte STM32_GO_COMMAND = 0x21;
     byte STM32_READ_COMMAND = 0x11;
+    byte STM32_GO_COMMAND = 0x21;
+    byte STM32_WRITE_COMMAND = 0x31;
+    byte STM32_EER_COMMAND = 0x44;
 
 }

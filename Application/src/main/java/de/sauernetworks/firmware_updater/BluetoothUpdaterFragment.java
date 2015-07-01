@@ -51,6 +51,7 @@ public class BluetoothUpdaterFragment extends Fragment {
     private static final int REQUEST_CONNECT_DEVICE_INSECURE = 2;
     private static final int REQUEST_ENABLE_BT = 3;
     private static final int DIALOG_DOWNLOAD_PROGRESS = 0;
+    private static final int DIALOG_UPLOAD_PROGRESS = 1;
 
     // Layout Views
     private Button mInitButton;
@@ -60,6 +61,8 @@ public class BluetoothUpdaterFragment extends Fragment {
     private Button mGidButton;
     private Button mGoCmdButton;
     private Button mReadMemoryButton;
+    private Button mEraseMemoryButton;
+    private Button mWriteMemoryButton;
     private Button mCheckUpdateButton;
     private Button mDownloadFirmwareButton;
     private TextView mLogTextView;
@@ -87,6 +90,7 @@ public class BluetoothUpdaterFragment extends Fragment {
     private BluetoothService mBluetoothService = null;
 
     private Commands mCommands;
+
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -149,8 +153,18 @@ public class BluetoothUpdaterFragment extends Fragment {
         switch (id) {
             case DIALOG_DOWNLOAD_PROGRESS:
                 mProgressDialog = new ProgressDialog(this.getActivity());
-                mProgressDialog.setMessage("Downloading firmware.. (Page 1/2048)");
-                mProgressDialog.setMax(100);
+                mProgressDialog.setMessage("Downloading firmware..\n(1/"+String.valueOf((Constants.STM32_PAGE_COUNT * Constants.STM32_BYTE_COUNT) / 1024)+" kb)");
+                mProgressDialog.setMax(Constants.STM32_PAGE_COUNT);
+                mProgressDialog.setProgressNumberFormat("%1d of %2d Pages read");
+                mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+                mProgressDialog.setCancelable(false);
+                mProgressDialog.show();
+
+            case DIALOG_UPLOAD_PROGRESS:
+                mProgressDialog = new ProgressDialog(this.getActivity());
+                mProgressDialog.setMessage("Uploading firmware..\n(1/"+String.valueOf((Constants.STM32_PAGE_COUNT * Constants.STM32_BYTE_COUNT) / 1024)+" kb)");
+                mProgressDialog.setMax(Constants.STM32_PAGE_COUNT);
+                mProgressDialog.setProgressNumberFormat("%1d of %2d Pages written");
                 mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
                 mProgressDialog.setCancelable(false);
                 mProgressDialog.show();
@@ -173,6 +187,8 @@ public class BluetoothUpdaterFragment extends Fragment {
         mGidButton = (Button) view.findViewById(R.id.button_gid);
         mGoCmdButton = (Button) view.findViewById(R.id.button_gocmd);
         mReadMemoryButton = (Button) view.findViewById(R.id.button_read_memory);
+        mEraseMemoryButton = (Button) view.findViewById(R.id.button_erase_memory);
+        mWriteMemoryButton = (Button) view.findViewById(R.id.button_write_memory);
         mDownloadFirmwareButton = (Button) view.findViewById(R.id.button_download_firmware);
         mCheckUpdateButton = (Button) view.findViewById(R.id.button_check_version);
         mLogTextView = (TextView) view.findViewById(R.id.list_log);
@@ -244,6 +260,23 @@ public class BluetoothUpdaterFragment extends Fragment {
                 mCommands.setAuto_read_out(false);
                 mBluetoothService.readMemory();
                 createDialog(DIALOG_DOWNLOAD_PROGRESS);
+            }
+        });
+
+        mEraseMemoryButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mCommands.setAuto_read_out(false);
+                mBluetoothService.sendEraseCmd();
+            }
+        });
+
+        mWriteMemoryButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mCommands.setAuto_read_out(false);
+                mBluetoothService.writeMemory();
+                createDialog(DIALOG_UPLOAD_PROGRESS);
             }
         });
 
@@ -412,6 +445,9 @@ public class BluetoothUpdaterFragment extends Fragment {
                     Log(ver);
                     Log.d(TAG, ver);
                     break;
+                case Constants.MESSAGE_ERASE_MEMORY_COMPLETE:
+                    Log("Erase Memory completed!");
+                    break;
                 case Constants.MESSAGE_BL_VERSION:
                     byte readBuf = (byte) msg.obj;
                     String temp = String.format("Bootloader Version: %02x", readBuf);
@@ -457,22 +493,59 @@ public class BluetoothUpdaterFragment extends Fragment {
                     int[] numByte = (int[]) msg.obj;
                     //String numByteText = String.format("READ Byte %d on page %d received!", numByte[1], numByte[0]);
                     //Log(numByteText);
-                    mProgressDialog.setSecondaryProgress((numByte[0] * 100) / Constants.STM32_READ_PAGE_COUNT);
-                    mProgressDialog.setProgress((numByte[0] * 100) / Constants.STM32_READ_BYTE_COUNT);
-                    mProgressDialog.setMessage("Downloading firmware..\r\n(Page "+String.valueOf(numByte[0])+"/"+String.valueOf(Constants.STM32_READ_PAGE_COUNT)+")");
+
+                    //mProgressDialog.setProgress((numByte[0] * 100) / Constants.STM32_PAGE_COUNT);
+                    mProgressDialog.setProgress(numByte[0]);
+                    //mProgressDialog.setSecondaryProgress((numByte[0] * 100) / Constants.STM32_BYTE_COUNT);
+                    //mProgressDialog.setMessage("Downloading firmware..\r\n(Page "+String.valueOf(numByte[0]+1)+"/"+String.valueOf(Constants.STM32_PAGE_COUNT)+")");
+                    mProgressDialog.setMessage("Downloading firmware..\n("+String.valueOf(((numByte[0]+1)*Constants.STM32_BYTE_COUNT)/1024)+"/"+String.valueOf((Constants.STM32_PAGE_COUNT * Constants.STM32_BYTE_COUNT) / 1024)+" kb)");
                     break;
-                case Constants.MESSAGE_READ_MEMORY_DONE:
+                case Constants.MESSAGE_READ_MEMORY_COMPLETE:
                     mProgressDialog.dismiss();
-                    int kb = (Constants.STM32_READ_PAGE_COUNT * Constants.STM32_READ_BYTE_COUNT)/1024;
+                    int kb = (Constants.STM32_PAGE_COUNT * Constants.STM32_BYTE_COUNT)/1024;
                     Toast.makeText(activity, "Download firmware complete! ("+kb+"kb)", Toast.LENGTH_SHORT).show();
                     if (mCommands.isAuto_read_out())
                         mBluetoothService.sendGoCmd();
                     break;
                 case Constants.MESSAGE_READ_MEMORY_FAILED:
                     int[] numPage = (int[]) msg.obj;
-                    Log.d(TAG, "Downloading firmware failed on Page "+String.valueOf(numPage[0])+" of "+String.valueOf(Constants.STM32_READ_PAGE_COUNT)+" on Byte "+String.valueOf(numPage[1]));
+                    if (numPage == null) {
+                        numPage = new int[2];
+                        numPage[0] = 1;
+                        numPage[1] = 1;
+                    }
+                    Log.d(TAG, "Downloading firmware failed on Page "+String.valueOf(numPage[0])+" of "+String.valueOf(Constants.STM32_PAGE_COUNT)+" on Byte "+String.valueOf(numPage[1]));
                     mProgressDialog.dismiss();
                     Toast.makeText(activity, "Failed to Download firmware", Toast.LENGTH_SHORT).show();
+                    break;
+                case Constants.MESSAGE_WRITE_MEMORY_FAILED:
+                    int[] wrPage = (int[]) msg.obj;
+                    if (wrPage == null) {
+                        wrPage = new int[2];
+                        wrPage[0] = 1;
+                        wrPage[1] = 1;
+                    }
+                    Log.d(TAG, "Uploading firmware failed on Page "+String.valueOf(wrPage[0])+" of "+String.valueOf(Constants.STM32_PAGE_COUNT)+" on Byte "+String.valueOf(wrPage[1]));
+                    mProgressDialog.dismiss();
+                    Toast.makeText(activity, "Failed to upload firmware", Toast.LENGTH_SHORT).show();
+                    break;
+                case Constants.MESSAGE_WRITE_MEMORY_BYTE:
+                    int[] bufWrite = (int[]) msg.obj;
+                    //String numByteText = String.format("READ Byte %d on page %d received!", numByte[1], numByte[0]);
+                    //Log(numByteText);
+
+                    //mProgressDialog.setProgress((numByte[0] * 100) / Constants.STM32_PAGE_COUNT);
+                    mProgressDialog.setProgress(bufWrite[0]);
+                    //mProgressDialog.setSecondaryProgress((numByte[0] * 100) / Constants.STM32_BYTE_COUNT);
+                    //mProgressDialog.setMessage("Downloading firmware..\r\n(Page "+String.valueOf(numByte[0]+1)+"/"+String.valueOf(Constants.STM32_PAGE_COUNT)+")");
+                    mProgressDialog.setMessage("Uploading firmware..\n("+String.valueOf(((bufWrite[0]+1)*Constants.STM32_BYTE_COUNT)/1024)+"/"+String.valueOf((Constants.STM32_PAGE_COUNT * Constants.STM32_BYTE_COUNT) / 1024)+" kb)");
+                    break;
+                case Constants.MESSAGE_WRITE_MEMORY_COMPLETE:
+                    mProgressDialog.dismiss();
+                    int wkb = (Constants.STM32_PAGE_COUNT * Constants.STM32_BYTE_COUNT)/1024;
+                    Toast.makeText(activity, "Download firmware complete! ("+wkb+"kb)", Toast.LENGTH_SHORT).show();
+                    if (mCommands.isAuto_read_out())
+                        mBluetoothService.sendGoCmd();
                     break;
                 case Constants.MESSAGE_DEVICE_NAME:
                     // save the connected device's name
