@@ -1,6 +1,4 @@
-package de.sauernetworks.firmware_updater;
-
-import android.util.Log;
+package de.sauernetworks.stm32bootloader;
 
 /**
  * Created by michael on 28.06.15.
@@ -63,7 +61,7 @@ public class Commands {
     public void addCommand(byte cmd) {
         if (cmd_active_count <= active_commands.length-1)
             active_commands[cmd_active_count++] = cmd;
-        //Log.d(TAG, String.format("Added active command %02x on pos %d", cmd, (cmd_active_count-1)));
+        //LogTextView.d(TAG, String.format("Added active command %02x on pos %d", cmd, (cmd_active_count-1)));
     }
 
     public byte[] getActiveCommands() {

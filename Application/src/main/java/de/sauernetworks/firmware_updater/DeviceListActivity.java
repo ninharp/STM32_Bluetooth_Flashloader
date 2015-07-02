@@ -44,7 +44,7 @@ import java.util.Set;
 public class DeviceListActivity extends Activity {
 
     /**
-     * Tag for Log
+     * Tag for LogTextView
      */
     private static final String TAG = "DeviceListActivity";
 

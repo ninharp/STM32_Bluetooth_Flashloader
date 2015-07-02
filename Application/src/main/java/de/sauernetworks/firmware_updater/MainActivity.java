@@ -20,12 +20,12 @@ package de.sauernetworks.firmware_updater;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentTransaction;
-import android.util.Log;
 import android.view.Menu;
 
-public class MainActivity extends FragmentActivity {
+import de.sauernetworks.stm32bootloader.Commands;
 
-    public static final String TAG = "STM32_FW_UpdaterMain";
+public class MainActivity extends FragmentActivity {
+    //public static final String TAG = "STM32_FW_UpdaterMain";
 
     public static Commands commands = new Commands();
 
@@ -49,16 +49,12 @@ public class MainActivity extends FragmentActivity {
         return true;
     }
 
-    public static void Log(String tag, String s) {
-        Log.d(tag, s);
-    }
-
     /*
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch(item.getItemId()) {
             case R.id.secure_connect_scan:
-                Log.d(TAG, "Connect");
+                LogTextView.d(TAG, "Connect");
                 Intent serverIntent = new Intent(getActivity(), DeviceListActivity.class);
                 startActivityForResult(serverIntent, REQUEST_CONNECT_DEVICE_SECURE);
                 return true;

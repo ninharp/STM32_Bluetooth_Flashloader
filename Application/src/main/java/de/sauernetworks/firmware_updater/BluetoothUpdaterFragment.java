@@ -39,12 +39,15 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import de.sauernetworks.stm32bootloader.Commands;
+import de.sauernetworks.tools.Logger;
+
 /**
  * This fragment controls Bluetooth to communicate with other devices.
  */
 public class BluetoothUpdaterFragment extends Fragment {
 
-    private static final String TAG = "STM32_FWU_Fragment";
+    private static final String TAG = "STM32_Firmware_Updater";
 
     // Intent request codes
     private static final int REQUEST_CONNECT_DEVICE_SECURE = 1;
@@ -52,6 +55,9 @@ public class BluetoothUpdaterFragment extends Fragment {
     private static final int REQUEST_ENABLE_BT = 3;
     private static final int DIALOG_DOWNLOAD_PROGRESS = 0;
     private static final int DIALOG_UPLOAD_PROGRESS = 1;
+    private static final int DIALOG_CONNECT_PROGRESS = 2;
+
+    private long firmware_size = 0;
 
     // Layout Views
     private Button mInitButton;
@@ -75,11 +81,6 @@ public class BluetoothUpdaterFragment extends Fragment {
     private String mConnectedDeviceName = null;
 
     /**
-     * String buffer for outgoing messages
-     */
-    private StringBuffer mOutStringBuffer;
-
-    /**
      * Local Bluetooth adapter
      */
     private BluetoothAdapter mBluetoothAdapter = null;
@@ -90,6 +91,7 @@ public class BluetoothUpdaterFragment extends Fragment {
     private BluetoothService mBluetoothService = null;
 
     private Commands mCommands;
+    private Logger mLog;
 
 
     @Override
@@ -98,6 +100,7 @@ public class BluetoothUpdaterFragment extends Fragment {
         setHasOptionsMenu(true);
         // Get local Bluetooth adapter
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        mLog = new Logger(this.getActivity(), true, true, TAG, 9);
 
         // If the adapter is null, then Bluetooth is not supported
         if (mBluetoothAdapter == null) {
@@ -151,6 +154,13 @@ public class BluetoothUpdaterFragment extends Fragment {
 
     private void createDialog(int id) {
         switch (id) {
+            case DIALOG_CONNECT_PROGRESS:
+                mProgressDialog = new ProgressDialog(this.getActivity());
+                mProgressDialog.setMessage("Connecting..");
+                mProgressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+                mProgressDialog.setCancelable(false);
+                mProgressDialog.show();
+                break;
             case DIALOG_DOWNLOAD_PROGRESS:
                 mProgressDialog = new ProgressDialog(this.getActivity());
                 mProgressDialog.setMessage("Downloading firmware..\n(1/"+String.valueOf((Constants.STM32_PAGE_COUNT * Constants.STM32_BYTE_COUNT) / 1024)+" kb)");
@@ -159,16 +169,29 @@ public class BluetoothUpdaterFragment extends Fragment {
                 mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
                 mProgressDialog.setCancelable(false);
                 mProgressDialog.show();
-
+                break;
             case DIALOG_UPLOAD_PROGRESS:
                 mProgressDialog = new ProgressDialog(this.getActivity());
-                mProgressDialog.setMessage("Uploading firmware..\n(1/"+String.valueOf((Constants.STM32_PAGE_COUNT * Constants.STM32_BYTE_COUNT) / 1024)+" kb)");
-                mProgressDialog.setMax(Constants.STM32_PAGE_COUNT);
+                /*if (firmware_size > 1024)
+                    mProgressDialog.setMessage("Uploading firmware..\n(1/"+String.valueOf(firmware_size / 1024)+" kb)");
+                else*/
+                mProgressDialog.setMessage("Uploading firmware..\n(1/" + String.valueOf(firmware_size) + " bytes)");
+                if ((firmware_size / 256) <= 1)
+                    mProgressDialog.setMax(1);
+                else
+                    mProgressDialog.setMax((int)(firmware_size/Constants.STM32_BYTE_COUNT));
                 mProgressDialog.setProgressNumberFormat("%1d of %2d Pages written");
                 mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
                 mProgressDialog.setCancelable(false);
                 mProgressDialog.show();
+                break;
         }
+    }
+
+    private void closeDialog() {
+        if (mProgressDialog != null)
+            if (mProgressDialog.isShowing())
+                mProgressDialog.dismiss();
     }
 
     @Override
@@ -192,14 +215,15 @@ public class BluetoothUpdaterFragment extends Fragment {
         mDownloadFirmwareButton = (Button) view.findViewById(R.id.button_download_firmware);
         mCheckUpdateButton = (Button) view.findViewById(R.id.button_check_version);
         mLogTextView = (TextView) view.findViewById(R.id.list_log);
-        Log("Started!\n");
+        LogTextView("Started!\n");
+        Log.d(TAG, "SCheissssajdfhlsdfsdhfsdhfdshfdsfdfshsdfhlsdfkl");
     }
 
     /**
      * Set up the UI and background operations for chat.
      */
     private void setupUI() {
-        Log.d(TAG, "setupUI()");
+        mLog.Log("setupUI()");
 
         //String message = textView.getText().toString();
         //sendMessage(message);
@@ -208,8 +232,8 @@ public class BluetoothUpdaterFragment extends Fragment {
             @Override
             public void onClick(View v) {
                 mCommands.setAuto_read_out(false);
-                Log.d(TAG, "Sending Bootloader jump command");
-                Log("Sending Bootloader jump command");
+                mLog.Log("Sending Bootloader jump command");
+                LogTextView("Sending Bootloader jump command");
                 mBluetoothService.send_ml_packet(0x03, "y 0 0");
             }
         });
@@ -276,14 +300,13 @@ public class BluetoothUpdaterFragment extends Fragment {
             public void onClick(View v) {
                 mCommands.setAuto_read_out(false);
                 mBluetoothService.writeMemory();
-                createDialog(DIALOG_UPLOAD_PROGRESS);
             }
         });
 
         mCheckUpdateButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Log("Getting running Firmware Version");
+                LogTextView("Getting running Firmware Version");
                 mBluetoothService.getVersion();
             }
         });
@@ -310,34 +333,8 @@ public class BluetoothUpdaterFragment extends Fragment {
         });
 
         // Initialize the BluetoothService to perform bluetooth connections
-        mBluetoothService = new BluetoothService(getActivity(), mHandler, mCommands);
+        mBluetoothService = new BluetoothService(getActivity(), mHandler, mCommands, mLog);
 
-        // Initialize the buffer for outgoing messages
-        mOutStringBuffer = new StringBuffer("");
-    }
-
-    /**
-     * Sends a message.
-     *
-     * @param message A string of text to send.
-     */
-    private void sendMessage(String message) {
-        // Check that we're actually connected before trying anything
-        if (mBluetoothService.getState() != BluetoothService.STATE_CONNECTED) {
-            Toast.makeText(getActivity(), R.string.not_connected, Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        // Check that there's actually something to send
-        if (message.length() > 0) {
-            // Get the message bytes and tell the BluetoothChatService to write
-            byte[] send = message.getBytes();
-            mBluetoothService.write(send);
-
-            // Reset out string buffer to zero and clear the edit text field
-            mOutStringBuffer.setLength(0);
-            //mOutEditText.setText(mOutStringBuffer);
-        }
     }
 
     /**
@@ -386,12 +383,13 @@ public class BluetoothUpdaterFragment extends Fragment {
                     switch (msg.arg1) {
                         case BluetoothService.STATE_CONNECTED:
                             setStatus(getString(R.string.title_connected_to, mConnectedDeviceName));
+                            closeDialog();
                             /*
                             final Handler handler = new Handler();
                             handler.postDelayed(new Runnable() {
                                 @Override
                                 public void run() {
-                                    Log.d(TAG, "Retrieving current Firmware Version");
+                                    LogTextView.d(TAG, "Retrieving current Firmware Version");
                                     mBluetoothService.getVersion();
                                 }
                             }, 100);
@@ -399,10 +397,12 @@ public class BluetoothUpdaterFragment extends Fragment {
                             break;
                         case BluetoothService.STATE_CONNECTING:
                             setStatus(R.string.title_connecting);
+                            createDialog(DIALOG_CONNECT_PROGRESS);
                             break;
                         case BluetoothService.STATE_LISTEN:
                         case BluetoothService.STATE_NONE:
                             setStatus(R.string.title_not_connected);
+                            closeDialog();
                             break;
                     }
                     break;
@@ -412,7 +412,7 @@ public class BluetoothUpdaterFragment extends Fragment {
                     // construct a string from the buffer
                     String writeMessage = new String();//writeBuf);
                     writeMessage = String.format("0x%02x", writeBuf[0]);
-                    Log.d(TAG, "Write: "+writeMessage);
+                    LogTextView.d(TAG, "Write: "+writeMessage);
                     */
                     break;
                 case Constants.MESSAGE_READ:
@@ -421,48 +421,50 @@ public class BluetoothUpdaterFragment extends Fragment {
                     // construct a string from the valid bytes in the buffer
                     String readMessage = new String(); //readBuf, 0, msg.arg1);
                     readMessage = String.format("0x%02x", readBuf[0]);
-                    Log.d(TAG, "Read: "+readMessage);
+                    LogTextView.d(TAG, "Read: "+readMessage);
                     */
                     break;
                 case Constants.MESSAGE_ACK_RECEIVED:
-                    //Log.d(TAG, "ACK Received!");
+                    //LogTextView.d(TAG, "ACK Received!");
                     break;
                 case Constants.MESSAGE_NACK_RECEIVED:
-                    //Log.d(TAG, "NACK Received!");
+                    //LogTextView.d(TAG, "NACK Received!");
                     break;
                 case Constants.MESSAGE_INIT_COMPLETE:
-                    Log.d(TAG, "Init sequence complete!");
+                    mLog.Log("Init sequence complete!");
                     if (mCommands.isAuto_read_out())
                         mBluetoothService.sendGetCmd();
                     //mInitButton.setEnabled(false);
+                    LogTextView("Init Sequence complete!");
                     break;
                 case Constants.MESSAGE_INIT_FAILED:
-                    Log.d(TAG, "Init sequence failed or already sent!");
+                    mLog.Log("Init sequence failed or already sent!");
+                    LogTextView("Init Sequence failed or already sent!");
                     break;
                 case Constants.MESSAGE_VERSION_COMPLETE:
                     int[] verBuf = (int[]) msg.obj;
                     String ver = String.format("Firmware Version: %d.%d.%d", verBuf[0], verBuf[1], verBuf[2]);
-                    Log(ver);
-                    Log.d(TAG, ver);
+                    LogTextView(ver);
+                    mLog.Log(ver);
                     break;
                 case Constants.MESSAGE_ERASE_MEMORY_COMPLETE:
-                    Log("Erase Memory completed!");
+                    LogTextView("Erase Memory completed!");
                     break;
                 case Constants.MESSAGE_BL_VERSION:
                     byte readBuf = (byte) msg.obj;
                     String temp = String.format("Bootloader Version: %02x", readBuf);
                     if (!mCommands.isGet_complete()) {
-                        Log(temp);
+                        LogTextView(temp);
                     }
-                    Log.d(TAG, temp);
+                    mLog.Log(temp);
                     break;
                 case Constants.MESSAGE_GET_COMPLETE:
                     byte[] getBuf = (byte[]) msg.obj;
                     if (!mCommands.isGet_complete() && mCommands.getActiveCommandCount() <= 0) {
-                        for (int c = 0; c < getBuf.length; c++) {
-                            mCommands.addCommand(getBuf[c]);
-                            String getCommand = String.format("Command: %s", mCommands.getCommandName(getBuf[c]));
-                            Log(getCommand);
+                        for (byte aGetBuf : getBuf) {
+                            mCommands.addCommand(aGetBuf);
+                            String getCommand = String.format("Command: %s", mCommands.getCommandName(aGetBuf));
+                            LogTextView(getCommand);
                         }
                     }
                     mCommands.setGet_complete(true);
@@ -471,15 +473,15 @@ public class BluetoothUpdaterFragment extends Fragment {
                     break;
                 case Constants.MESSAGE_GID_COMPLETE:
                     byte[] gidBuf = (byte[]) msg.obj;
-                    for (int c = 0; c < gidBuf.length; c++) {
-                        String gid = String.format("Product ID: 0x04%02x", gidBuf[c]);
+                    for (byte aGidBuf : gidBuf) {
+                        String gid = String.format("Product ID: 0x04%02x", aGidBuf);
                         if (!mCommands.isGid_complete())
-                            Log(gid);
-                        Log.d(TAG, gid);
+                            LogTextView(gid);
+                        mLog.Log(gid);
                     }
                     if (gidBuf[0] == Constants.STM32_PID) {
                         if (!mCommands.isGid_complete())
-                            Log("Correct Product ID found! Update possible!");
+                            LogTextView("Correct Product ID found! Update possible!");
                         mCommands.setGid_complete(true);
                         if (mCommands.isAuto_read_out()) {
                             mBluetoothService.readMemory();
@@ -492,7 +494,7 @@ public class BluetoothUpdaterFragment extends Fragment {
                 case Constants.MESSAGE_READ_MEMORY_BYTE:
                     int[] numByte = (int[]) msg.obj;
                     //String numByteText = String.format("READ Byte %d on page %d received!", numByte[1], numByte[0]);
-                    //Log(numByteText);
+                    //LogTextView(numByteText);
 
                     //mProgressDialog.setProgress((numByte[0] * 100) / Constants.STM32_PAGE_COUNT);
                     mProgressDialog.setProgress(numByte[0]);
@@ -501,9 +503,10 @@ public class BluetoothUpdaterFragment extends Fragment {
                     mProgressDialog.setMessage("Downloading firmware..\n("+String.valueOf(((numByte[0]+1)*Constants.STM32_BYTE_COUNT)/1024)+"/"+String.valueOf((Constants.STM32_PAGE_COUNT * Constants.STM32_BYTE_COUNT) / 1024)+" kb)");
                     break;
                 case Constants.MESSAGE_READ_MEMORY_COMPLETE:
-                    mProgressDialog.dismiss();
+                    closeDialog();
                     int kb = (Constants.STM32_PAGE_COUNT * Constants.STM32_BYTE_COUNT)/1024;
                     Toast.makeText(activity, "Download firmware complete! ("+kb+"kb)", Toast.LENGTH_SHORT).show();
+                    LogTextView("Download firmware complete! ("+kb+"kb)");
                     if (mCommands.isAuto_read_out())
                         mBluetoothService.sendGoCmd();
                     break;
@@ -514,36 +517,56 @@ public class BluetoothUpdaterFragment extends Fragment {
                         numPage[0] = 1;
                         numPage[1] = 1;
                     }
-                    Log.d(TAG, "Downloading firmware failed on Page "+String.valueOf(numPage[0])+" of "+String.valueOf(Constants.STM32_PAGE_COUNT)+" on Byte "+String.valueOf(numPage[1]));
-                    mProgressDialog.dismiss();
+                    mLog.Log("Downloading firmware failed on Page " + String.valueOf(numPage[0]) + " of " + String.valueOf(Constants.STM32_PAGE_COUNT) + " on Byte " + String.valueOf(numPage[1]));
+                    LogTextView("Downloading firmware failed on Page " + String.valueOf(numPage[0]) + " of " + String.valueOf(Constants.STM32_PAGE_COUNT) + " on Byte " + String.valueOf(numPage[1]));
+                    closeDialog();
                     Toast.makeText(activity, "Failed to Download firmware", Toast.LENGTH_SHORT).show();
                     break;
+
+                case Constants.MESSAGE_WRITE_START:
+                    firmware_size = (long) msg.obj;
+                    createDialog(DIALOG_UPLOAD_PROGRESS);
+                    break;
                 case Constants.MESSAGE_WRITE_MEMORY_FAILED:
-                    int[] wrPage = (int[]) msg.obj;
+                    long[] wrPage = (long[]) msg.obj;
                     if (wrPage == null) {
-                        wrPage = new int[2];
+                        wrPage = new long[3];
                         wrPage[0] = 1;
                         wrPage[1] = 1;
+                        wrPage[2] = 1;
                     }
-                    Log.d(TAG, "Uploading firmware failed on Page "+String.valueOf(wrPage[0])+" of "+String.valueOf(Constants.STM32_PAGE_COUNT)+" on Byte "+String.valueOf(wrPage[1]));
-                    mProgressDialog.dismiss();
+                    mLog.Log("Uploading firmware failed on Page " + String.valueOf(wrPage[0]) + " of " + String.valueOf(wrPage[3]/Constants.STM32_BYTE_COUNT) + " on Byte " + String.valueOf((wrPage[0] * Constants.STM32_BYTE_COUNT) + wrPage[1]));
+                    LogTextView("Uploading firmware failed on Page " + String.valueOf(wrPage[0]) + " of " + String.valueOf(wrPage[3]/Constants.STM32_BYTE_COUNT) + " on Byte " + String.valueOf((wrPage[0] * Constants.STM32_BYTE_COUNT) + wrPage[1]));
+                    closeDialog();
                     Toast.makeText(activity, "Failed to upload firmware", Toast.LENGTH_SHORT).show();
+                    break;
+                case Constants.MESSAGE_WRITE_MEMORY_FILE_ERROR:
+                    mLog.Log("Uploading firmware failed! Cannot open/find firmware file");
+                    LogTextView("Uploading firmware failed! Cannot open/find firmware file");
+                    closeDialog();
+                    Toast.makeText(activity, "Failed to open firmware file", Toast.LENGTH_SHORT).show();
                     break;
                 case Constants.MESSAGE_WRITE_MEMORY_BYTE:
                     int[] bufWrite = (int[]) msg.obj;
-                    //String numByteText = String.format("READ Byte %d on page %d received!", numByte[1], numByte[0]);
-                    //Log(numByteText);
-
-                    //mProgressDialog.setProgress((numByte[0] * 100) / Constants.STM32_PAGE_COUNT);
                     mProgressDialog.setProgress(bufWrite[0]);
-                    //mProgressDialog.setSecondaryProgress((numByte[0] * 100) / Constants.STM32_BYTE_COUNT);
-                    //mProgressDialog.setMessage("Downloading firmware..\r\n(Page "+String.valueOf(numByte[0]+1)+"/"+String.valueOf(Constants.STM32_PAGE_COUNT)+")");
-                    mProgressDialog.setMessage("Uploading firmware..\n("+String.valueOf(((bufWrite[0]+1)*Constants.STM32_BYTE_COUNT)/1024)+"/"+String.valueOf((Constants.STM32_PAGE_COUNT * Constants.STM32_BYTE_COUNT) / 1024)+" kb)");
+                    int currByte = (bufWrite[0] * Constants.STM32_BYTE_COUNT) + bufWrite[1];
+                    /*if (currByte > 1024)
+                        mProgressDialog.setMessage("Uploading firmware..\n("+ String.valueOf(currByte) +"/"+String.valueOf(firmware_size / 1024)+" kb)");
+                    else*/
+                    mProgressDialog.setMessage("Uploading firmware..\n("+ String.valueOf(currByte) +"/" + String.valueOf(firmware_size) + " bytes)");
                     break;
                 case Constants.MESSAGE_WRITE_MEMORY_COMPLETE:
-                    mProgressDialog.dismiss();
-                    int wkb = (Constants.STM32_PAGE_COUNT * Constants.STM32_BYTE_COUNT)/1024;
-                    Toast.makeText(activity, "Download firmware complete! ("+wkb+"kb)", Toast.LENGTH_SHORT).show();
+                    long fileSize = (long) msg.obj;
+                    closeDialog();
+                    String size;
+                    if (fileSize > 1024) {
+                        size = String.format("(%d kb)", (fileSize / 1024));
+                    } else {
+                        size = String.format("(%d bytes)", fileSize);
+                    }
+
+                    Toast.makeText(activity, "Upload firmware complete! " + size, Toast.LENGTH_SHORT).show();
+                    LogTextView("Upload firmware complete! " + size);
                     if (mCommands.isAuto_read_out())
                         mBluetoothService.sendGoCmd();
                     break;
@@ -566,7 +589,7 @@ public class BluetoothUpdaterFragment extends Fragment {
     };
 
 
-    public void Log(String message) {
+    public void LogTextView(String message) {
         mLogTextView.append(message+"\n");
     }
 
@@ -579,6 +602,8 @@ public class BluetoothUpdaterFragment extends Fragment {
                 }
                 break;
             case REQUEST_CONNECT_DEVICE_INSECURE:
+
+
                 // When DeviceListActivity returns with a device to connect
                 if (resultCode == Activity.RESULT_OK) {
                     connectDevice(data, false);
@@ -591,7 +616,7 @@ public class BluetoothUpdaterFragment extends Fragment {
                     setupUI();
                 } else {
                     // User did not enable Bluetooth or an error occurred
-                    Log.d(TAG, "BT not enabled");
+                    mLog.Log("BT not enabled");
                     Toast.makeText(getActivity(), R.string.bt_not_enabled_leaving,
                             Toast.LENGTH_SHORT).show();
                     getActivity().finish();
@@ -624,7 +649,7 @@ public class BluetoothUpdaterFragment extends Fragment {
     public boolean onOptionsItemSelected(MenuItem item) {
         switch(item.getItemId()) {
             case R.id.secure_connect_scan:
-                Log.d(TAG, "Connect");
+                mLog.Log("Connect");
                 Intent serverIntent = new Intent(getActivity(), DeviceListActivity.class);
                 startActivityForResult(serverIntent, REQUEST_CONNECT_DEVICE_SECURE);
                 return true;

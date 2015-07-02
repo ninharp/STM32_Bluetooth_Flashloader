@@ -1,4 +1,4 @@
-package de.sauernetworks.firmware_updater;
+package de.sauernetworks.stm32bootloader;
 
 /**
  * Created by michael on 28.06.15.
