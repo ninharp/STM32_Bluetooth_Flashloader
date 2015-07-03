@@ -33,6 +33,9 @@ public interface Protocol {
 
     int MESSAGE_ERASE_MEMORY_COMPLETE = 21;
 
+    int STM32_BYTE_COUNT = 256;
+    int STM32_PAGE_COUNT = 2048; //384; // Need 2048 for full
+
     int STM32_READ_TIMEOUT = 2000; ///< Read timeout in milliseconds
 
     byte STM32_INIT = 0x7F;

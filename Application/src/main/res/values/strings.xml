@@ -46,4 +46,9 @@
     <string name="button_erase_memory">Erase Memory</string>
     <string name="button_write_memory">Write Memory</string>
 
+    <!-- Preferences -->
+    <string name="pref_misc_category">Miscellaneous Settings</string>
+    <string name="pref_debug_title">Debug</string>
+    <string name="pref_debug_summary">Debugging enabled</string>
+
 </resources>

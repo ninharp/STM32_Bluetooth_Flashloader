@@ -40,7 +40,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import de.sauernetworks.stm32bootloader.Commands;
+import de.sauernetworks.stm32bootloader.Protocol;
 import de.sauernetworks.tools.Logger;
+
+import static de.sauernetworks.stm32bootloader.Protocol.*;
 
 /**
  * This fragment controls Bluetooth to communicate with other devices.
@@ -160,11 +163,12 @@ public class BluetoothUpdaterFragment extends Fragment {
                 mProgressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
                 mProgressDialog.setCancelable(false);
                 mProgressDialog.show();
+                // TODO change connect button to disconnect button
                 break;
             case DIALOG_DOWNLOAD_PROGRESS:
                 mProgressDialog = new ProgressDialog(this.getActivity());
-                mProgressDialog.setMessage("Downloading firmware..\n(1/"+String.valueOf((Constants.STM32_PAGE_COUNT * Constants.STM32_BYTE_COUNT) / 1024)+" kb)");
-                mProgressDialog.setMax(Constants.STM32_PAGE_COUNT);
+                mProgressDialog.setMessage("Downloading firmware..\n(1/"+String.valueOf((STM32_PAGE_COUNT * STM32_BYTE_COUNT) / 1024)+" kb)");
+                mProgressDialog.setMax(STM32_PAGE_COUNT);
                 mProgressDialog.setProgressNumberFormat("%1d of %2d Pages read");
                 mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
                 mProgressDialog.setCancelable(false);
@@ -179,7 +183,7 @@ public class BluetoothUpdaterFragment extends Fragment {
                 if ((firmware_size / 256) <= 1)
                     mProgressDialog.setMax(1);
                 else
-                    mProgressDialog.setMax((int)(firmware_size/Constants.STM32_BYTE_COUNT));
+                    mProgressDialog.setMax((int)(firmware_size/ STM32_BYTE_COUNT));
                 mProgressDialog.setProgressNumberFormat("%1d of %2d Pages written");
                 mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
                 mProgressDialog.setCancelable(false);
@@ -496,17 +500,24 @@ public class BluetoothUpdaterFragment extends Fragment {
                     //String numByteText = String.format("READ Byte %d on page %d received!", numByte[1], numByte[0]);
                     //LogTextView(numByteText);
 
-                    //mProgressDialog.setProgress((numByte[0] * 100) / Constants.STM32_PAGE_COUNT);
+                    //mProgressDialog.setProgress((numByte[0] * 100) / Protocol.STM32_PAGE_COUNT);
                     mProgressDialog.setProgress(numByte[0]);
-                    //mProgressDialog.setSecondaryProgress((numByte[0] * 100) / Constants.STM32_BYTE_COUNT);
-                    //mProgressDialog.setMessage("Downloading firmware..\r\n(Page "+String.valueOf(numByte[0]+1)+"/"+String.valueOf(Constants.STM32_PAGE_COUNT)+")");
-                    mProgressDialog.setMessage("Downloading firmware..\n("+String.valueOf(((numByte[0]+1)*Constants.STM32_BYTE_COUNT)/1024)+"/"+String.valueOf((Constants.STM32_PAGE_COUNT * Constants.STM32_BYTE_COUNT) / 1024)+" kb)");
+                    //mProgressDialog.setSecondaryProgress((numByte[0] * 100) / Protocol.STM32_BYTE_COUNT);
+                    //mProgressDialog.setMessage("Downloading firmware..\r\n(Page "+String.valueOf(numByte[0]+1)+"/"+String.valueOf(Protocol.STM32_PAGE_COUNT)+")");
+                    mProgressDialog.setMessage("Downloading firmware..\n("+String.valueOf(((numByte[0]+1)* STM32_BYTE_COUNT)/1024)+"/"+String.valueOf((STM32_PAGE_COUNT * STM32_BYTE_COUNT) / 1024)+" kb)");
                     break;
                 case Constants.MESSAGE_READ_MEMORY_COMPLETE:
+                    int written_pages = (int) msg.obj;
                     closeDialog();
-                    int kb = (Constants.STM32_PAGE_COUNT * Constants.STM32_BYTE_COUNT)/1024;
-                    Toast.makeText(activity, "Download firmware complete! ("+kb+"kb)", Toast.LENGTH_SHORT).show();
-                    LogTextView("Download firmware complete! ("+kb+"kb)");
+                    int b = (written_pages * STM32_BYTE_COUNT);
+                    if (b > 1024) {
+                        int kb = b / 1024;
+                        Toast.makeText(activity, "Download firmware complete! (" + kb + "kb)", Toast.LENGTH_SHORT).show();
+                        LogTextView("Download firmware complete! (" + kb + "kb)");
+                    } else {
+                        Toast.makeText(activity, "Download firmware complete! (" + b + "bytes)", Toast.LENGTH_SHORT).show();
+                        LogTextView("Download firmware complete! (" + b + "bytes)");
+                    }
                     if (mCommands.isAuto_read_out())
                         mBluetoothService.sendGoCmd();
                     break;
@@ -517,8 +528,8 @@ public class BluetoothUpdaterFragment extends Fragment {
                         numPage[0] = 1;
                         numPage[1] = 1;
                     }
-                    mLog.Log("Downloading firmware failed on Page " + String.valueOf(numPage[0]) + " of " + String.valueOf(Constants.STM32_PAGE_COUNT) + " on Byte " + String.valueOf(numPage[1]));
-                    LogTextView("Downloading firmware failed on Page " + String.valueOf(numPage[0]) + " of " + String.valueOf(Constants.STM32_PAGE_COUNT) + " on Byte " + String.valueOf(numPage[1]));
+                    mLog.Log("Downloading firmware failed on Page " + String.valueOf(numPage[0]) + " of " + String.valueOf(STM32_PAGE_COUNT) + " on Byte " + String.valueOf(numPage[1]));
+                    LogTextView("Downloading firmware failed on Page " + String.valueOf(numPage[0]) + " of " + String.valueOf(STM32_PAGE_COUNT) + " on Byte " + String.valueOf(numPage[1]));
                     closeDialog();
                     Toast.makeText(activity, "Failed to Download firmware", Toast.LENGTH_SHORT).show();
                     break;
@@ -535,8 +546,8 @@ public class BluetoothUpdaterFragment extends Fragment {
                         wrPage[1] = 1;
                         wrPage[2] = 1;
                     }
-                    mLog.Log("Uploading firmware failed on Page " + String.valueOf(wrPage[0]) + " of " + String.valueOf(wrPage[3]/Constants.STM32_BYTE_COUNT) + " on Byte " + String.valueOf((wrPage[0] * Constants.STM32_BYTE_COUNT) + wrPage[1]));
-                    LogTextView("Uploading firmware failed on Page " + String.valueOf(wrPage[0]) + " of " + String.valueOf(wrPage[3]/Constants.STM32_BYTE_COUNT) + " on Byte " + String.valueOf((wrPage[0] * Constants.STM32_BYTE_COUNT) + wrPage[1]));
+                    mLog.Log("Uploading firmware failed on Page " + String.valueOf(wrPage[0]) + " of " + String.valueOf(wrPage[2]/ STM32_BYTE_COUNT) + " on Byte " + String.valueOf((wrPage[0] * STM32_BYTE_COUNT) + wrPage[1]));
+                    LogTextView("Uploading firmware failed on Page " + String.valueOf(wrPage[0]) + " of " + String.valueOf(wrPage[2]/ STM32_BYTE_COUNT) + " on Byte " + String.valueOf((wrPage[0] * STM32_BYTE_COUNT) + wrPage[1]));
                     closeDialog();
                     Toast.makeText(activity, "Failed to upload firmware", Toast.LENGTH_SHORT).show();
                     break;
@@ -549,7 +560,7 @@ public class BluetoothUpdaterFragment extends Fragment {
                 case Constants.MESSAGE_WRITE_MEMORY_BYTE:
                     int[] bufWrite = (int[]) msg.obj;
                     mProgressDialog.setProgress(bufWrite[0]);
-                    int currByte = (bufWrite[0] * Constants.STM32_BYTE_COUNT) + bufWrite[1];
+                    int currByte = (bufWrite[0] * STM32_BYTE_COUNT) + bufWrite[1];
                     /*if (currByte > 1024)
                         mProgressDialog.setMessage("Uploading firmware..\n("+ String.valueOf(currByte) +"/"+String.valueOf(firmware_size / 1024)+" kb)");
                     else*/

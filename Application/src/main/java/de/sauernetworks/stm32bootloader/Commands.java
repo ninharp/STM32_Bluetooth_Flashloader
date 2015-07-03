@@ -22,6 +22,7 @@ public class Commands {
     private boolean go_complete = false;
     private boolean read_in_progress = false;
     private boolean read_complete = false;
+    private boolean read_full = false;
     private boolean version_in_progress = false;
     private boolean version_complete = false;
     private boolean erase_in_progress = false;
@@ -266,5 +267,13 @@ public class Commands {
 
     public void setWrite_complete(boolean write_complete) {
         this.write_complete = write_complete;
+    }
+
+    public boolean isRead_full() {
+        return read_full;
+    }
+
+    public void setRead_full(boolean read_full) {
+        this.read_full = read_full;
     }
 }

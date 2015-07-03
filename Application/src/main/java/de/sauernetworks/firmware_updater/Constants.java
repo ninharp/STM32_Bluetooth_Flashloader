@@ -33,11 +33,11 @@ public interface Constants {
     int FIRMWARE_MIN_MINOR = 4;
     int FIRMWARE_MIN_BUILD = 800;
 
-    String FIRMWARE_FILENAME = "magiclight_1_4_build804";
+    String FIRMWARE_FILENAME = "backup";
     String FIRMWARE_EXTENSION = ".bin";
 
-    int STM32_BYTE_COUNT = 256;
-    int STM32_PAGE_COUNT = 384; //384; // Need 2048 for full
+    int FIRMWARE_MAX_EMPTY_BYTES = 32;
+
     long STM32_START_ADDRESS = 0x08000000;
     byte STM32_PID = 0x33;
     String STM32_NAME_PATTERN = "MagicLightV2-\\w\\w\\w\\w";
