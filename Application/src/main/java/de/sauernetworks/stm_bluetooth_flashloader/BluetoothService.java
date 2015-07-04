@@ -1,4 +1,4 @@
-package de.sauernetworks.firmware_updater;
+package de.sauernetworks.stm_bluetooth_flashloader;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -20,8 +20,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
 
-import de.sauernetworks.stm32bootloader.Commands;
-import de.sauernetworks.stm32bootloader.Protocol;
+import de.sauernetworks.stm_bootloader.Commands;
+import de.sauernetworks.stm_bootloader.Protocol;
 import de.sauernetworks.tools.Logger;
 
 /**
@@ -57,6 +57,7 @@ public class BluetoothService {
     private ConnectedThread mConnectedThread;
     private int mState;
     private Logger mLog;
+    private String firmware_filename;
 
     /**
      * Constructor. Prepares a new BluetoothChat session.
@@ -329,6 +330,10 @@ public class BluetoothService {
         mCommands.setWrite_in_progress(true);
     }
 
+    public void setMemoryFilename(String s) {
+        this.firmware_filename = s;
+    }
+
     /**
      * This thread runs while listening for incoming connections. It behaves
      * like a server-side client. It runs until a connection is accepted
@@ -596,7 +601,7 @@ public class BluetoothService {
             // Keep listening to the InputStream while connected
             while (true) {
                 try {
-                    if (mCommands.isInit_in_progress()) {
+                    if (mCommands.isInit_in_progress() && !mCommands.isRunning()) {
                         mCommands.setRunning(true);
                         mLog.Log("INIT in Progress!");
                         mmInStream.skip(mmInStream.available());
@@ -622,7 +627,7 @@ public class BluetoothService {
 
                     }
 
-                    if (mCommands.isGet_in_progress()) {
+                    if (mCommands.isGet_in_progress() && !mCommands.isRunning()) {
                         mCommands.setRunning(true);
                         mLog.Log("GET Command in Progress!");
                         sendByte(Protocol.STM32_GET_COMMAND);
@@ -667,7 +672,7 @@ public class BluetoothService {
                         mCommands.setRunning(false);
                     }
 
-                    if (mCommands.isGvrp_in_progress()) {
+                    if (mCommands.isGvrp_in_progress() && !mCommands.isRunning()) {
                         mCommands.setRunning(true);
                         mLog.Log("GVRP Command in Progress!");
                         if (mCommands.isGet_complete() && mCommands.isActiveCommand(Protocol.STM32_GVRP_COMMAND)) {
@@ -710,7 +715,7 @@ public class BluetoothService {
                         mCommands.setRunning(false);
                     }
 
-                    if (mCommands.isGid_in_progress()) {
+                    if (mCommands.isGid_in_progress() && !mCommands.isRunning()) {
                         mCommands.setRunning(true);
                         mLog.Log("GID Command in Progress!");
                         if (mCommands.isGet_complete() && mCommands.isActiveCommand(Protocol.STM32_GET_ID_COMMAND)) {
@@ -723,7 +728,7 @@ public class BluetoothService {
                                     byte gid_count = buffer[0];
                                     String temp = String.format("GID: %d Bytes Follow", gid_count);
                                     mLog.Log(temp);
-                                    numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
+                                    numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);  // TODO check expected gid count bytes
                                     byte[] gid_buffer = new byte[gid_count];
                                     for (int i = 0; i < gid_count; i++) {
                                         numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
@@ -752,7 +757,7 @@ public class BluetoothService {
                             }
                         } else {
                             mCommands.setGid_in_progress(false);
-                            if (!mCommands.isGet_complete())
+                            if (!mCommands.isGet_complete() && !mCommands.isRunning())
                                 mLog.Log("GID: Error! GET Command not completed!");
                             else
                                 mLog.Log("GID: Error! GID Command not in instruction set!");
@@ -760,7 +765,7 @@ public class BluetoothService {
                         mCommands.setRunning(false);
                     }
 
-                    if (mCommands.isGo_in_progress()) {
+                    if (mCommands.isGo_in_progress() && !mCommands.isRunning()) {
                         mCommands.setRunning(true);
                         mLog.Log("GO Command in Progress!");
                         if (mCommands.isGet_complete() && mCommands.isActiveCommand(Protocol.STM32_GET_ID_COMMAND)) {
@@ -811,7 +816,7 @@ public class BluetoothService {
                         mCommands.setRunning(false);
                     }
 
-                    if (mCommands.isVersion_in_progress()) {
+                    if (mCommands.isVersion_in_progress() && !mCommands.isRunning()) {
                         mCommands.setRunning(true);
                         mLog.Log("VERSION Command in Progress!");
                         numRead = (int) mmInStream.skip(mmInStream.available());
@@ -859,16 +864,18 @@ public class BluetoothService {
                         mCommands.setRunning(false);
                     }
 
-                    if (mCommands.isRead_in_progress()) {
+                    if (mCommands.isRead_in_progress() && !mCommands.isRunning()) {
                         mCommands.setRunning(true);
                         mLog.Log("READ: Command in Progress!");
                         int written_pages = 0;
                         if (mCommands.isGet_complete() && mCommands.isActiveCommand(Protocol.STM32_READ_COMMAND)) {
+                            mHandler.obtainMessage(Constants.MESSAGE_READ_MEMORY_START).sendToTarget();
                             long address = Constants.STM32_START_ADDRESS;
                             int emptyBytes = 0; // TODO check empty bytes
                             for (int page = 0; page < Protocol.STM32_PAGE_COUNT; page++) {
-                                if (emptyBytes > Constants.FIRMWARE_MAX_EMPTY_BYTES && !mCommands.isRead_full()) {
-                                    mLog.LogF("READ: Only empty bytes follow!");
+                                if (emptyBytes > mCommands.getSkipBytes() && !mCommands.isRead_full()) {
+                                    mLog.LogF("READ: Read "+String.valueOf(mCommands.getSkipBytes())+" bytes of 0xff. Only empty bytes follow!");
+
                                     break;
                                 }
                                 sendByte(Protocol.STM32_READ_COMMAND);
@@ -914,7 +921,7 @@ public class BluetoothService {
                                                             writeToFile(data, false);
                                                         else
                                                             writeToFile(data, true); // TODO file write error exception
-                                                        mLog.LogF("READ: Read Page "+String.valueOf(page));
+                                                        //mLog.LogF("READ: Read Page "+String.valueOf(page));
                                                         written_pages++;
                                                         break;
                                                 }
@@ -949,7 +956,7 @@ public class BluetoothService {
                         mCommands.setRunning(false);
                     }
 
-                    if (mCommands.isErase_in_progress()) {
+                    if (mCommands.isErase_in_progress() && !mCommands.isRunning()) {
                         mCommands.setRunning(true);
                         mLog.Log("EER Command in Progress!");
                         if (mCommands.isGet_complete() && mCommands.isActiveCommand(Protocol.STM32_EER_COMMAND)) {
@@ -962,14 +969,18 @@ public class BluetoothService {
                                     eerBuf[0] = (byte) 0xFF;
                                     eerBuf[1] = (byte) 0xFF;
                                     eerBuf[2] = (byte) (eerBuf[0] ^ eerBuf[1]);
+                                    mHandler.obtainMessage(Constants.MESSAGE_ERASE_MEMORY_START).sendToTarget();
                                     write(eerBuf);
-                                    readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
+                                    long maxTimeMillis = System.currentTimeMillis() + Protocol.STM32_EER_TIMEOUT;
+                                    while (System.currentTimeMillis() < maxTimeMillis && mmInStream.read(buffer) <= 0);
                                     if (buffer[0] == Protocol.STM32_ACK) {
                                         mCommands.setErase_in_progress(false);
                                         mCommands.setErase_complete(true);
                                         mHandler.obtainMessage(Constants.MESSAGE_ERASE_MEMORY_COMPLETE).sendToTarget();
-                                        mLog.Log("EER: Erase of Memory completed!");
+                                        mLog.Log("EER: Mass Erase of Memory completed!");
                                     } else if (buffer[0] == Protocol.STM32_NACK) {
+                                        mHandler.obtainMessage(Constants.MESSAGE_ERASE_MEMORY_FAILED).sendToTarget();
+                                        mLog.Log("EER: Mass Erase of Memory failed!");
                                         mCommands.setErase_in_progress(false);
                                     } else {
                                         mLog.Log("EER: No valid byte received! (" + String.format("0x%02x", buffer[0]) + ")");
@@ -977,10 +988,12 @@ public class BluetoothService {
                                     }
                                     break;
                                 case Protocol.STM32_NACK:
+                                    mHandler.obtainMessage(Constants.MESSAGE_ERASE_MEMORY_FAILED).sendToTarget();
                                     mLog.Log("EER: NACK Received!");
                                     mCommands.setErase_in_progress(false);
                                     break;
                                 default:
+                                    mHandler.obtainMessage(Constants.MESSAGE_ERASE_MEMORY_FAILED).sendToTarget();
                                     mLog.Log("EER: No valid byte received! (" + String.format("0x%02x", buffer[0]) + ")");
                                     mCommands.setErase_in_progress(false);
                                     break;
@@ -995,7 +1008,7 @@ public class BluetoothService {
                         mCommands.setRunning(false);
                     }
 
-                    if (mCommands.isWrite_in_progress()) {
+                    if (mCommands.isWrite_in_progress() && !mCommands.isRunning()) {
                         mCommands.setRunning(true);
                         boolean error = false;
                         mLog.Log("WRITE Command in Progress!");
@@ -1006,6 +1019,8 @@ public class BluetoothService {
                             long[] errBuff = new long[3];
                             //String filepath = path + "_1_4_build804" + Constants.FIRMWARE_EXTENSION;
                             String filepath = path + Constants.FIRMWARE_EXTENSION;
+                            if (firmware_filename.length() > 0)
+                                filepath = firmware_filename;
                             File file = new File(filepath);
                             long size = file.length();
                             errBuff[2] = size;
@@ -1053,17 +1068,16 @@ public class BluetoothService {
                                             int[] dataBuf = new int[2];
                                             dataBuf[0] = page;
                                             int countData = firmwareBuf.read(firmwareData, 0, firmwareData.length);
-                                            mLog.LogF("WRITE: Read " + String.valueOf(countData) + " bytes from firmware file!");
                                             sendByte((byte) (Protocol.STM32_BYTE_COUNT - 1)); // write 256 bytes
                                             firmwareChecksum = (byte) (Protocol.STM32_BYTE_COUNT - 1);
                                             if (countData < firmwareData.length) {
-                                                mLog.LogF("WRITE: File at end! Fillig with 0xff");
+                                                mLog.LogF("WRITE: File at end! Filling with 0xff");
                                                 for (int i = countData; i < firmwareData.length; i++)
                                                     firmwareData[i] = (byte) 0xFF;
                                                 page = Protocol.STM32_PAGE_COUNT;
                                             } else if (countData == -1) {
                                                 error = true;
-                                                mLog.Log("WRITE: File read Error on Write PAGE " + String.valueOf(page) + " [" + String.format("0x%02x", buffer[0]) + "]");
+                                                //mLog.Log("WRITE: File read Error on Write PAGE " + String.valueOf(page) + " [" + String.format("0x%02x", buffer[0]) + "]");
                                                 errBuff[0] = page;
                                                 errBuff[1] = countData;
                                                 mHandler.obtainMessage(Constants.MESSAGE_WRITE_MEMORY_FAILED, errBuff.length, -1, errBuff).sendToTarget();
@@ -1084,7 +1098,7 @@ public class BluetoothService {
                                             sendByte(firmwareChecksum);
                                             readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
                                             if (buffer[0] == Protocol.STM32_ACK) {
-                                                mLog.LogF("WRITE: Written Offset " + String.valueOf(firmwareOffset) + " successfully");
+                                                //mLog.LogF("WRITE: Written Offset " + String.valueOf(firmwareOffset) + " successfully");
                                             } else {
                                                 error = true;
                                                 mLog.Log(String.format("WRITE: Error on Writing Offset %d [0x%02x]", firmwareOffset, buffer[0]));

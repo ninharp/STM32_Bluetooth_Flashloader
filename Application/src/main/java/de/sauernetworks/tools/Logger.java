@@ -7,8 +7,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
-import de.sauernetworks.firmware_updater.Constants;
-
 /**
  * Created by michael on 01.07.15.
  */

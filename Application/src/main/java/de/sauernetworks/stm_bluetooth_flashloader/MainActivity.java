@@ -15,14 +15,14 @@
 */
 
 
-package de.sauernetworks.firmware_updater;
+package de.sauernetworks.stm_bluetooth_flashloader;
 
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentTransaction;
 import android.view.Menu;
 
-import de.sauernetworks.stm32bootloader.Commands;
+import de.sauernetworks.stm_bootloader.Commands;
 
 public class MainActivity extends FragmentActivity {
     //public static final String TAG = "STM32_FW_UpdaterMain";
@@ -32,7 +32,7 @@ public class MainActivity extends FragmentActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(de.sauernetworks.firmware_updater.R.layout.activity_main);
+        setContentView(de.sauernetworks.stm_bluetooth_flashloader.R.layout.activity_main);
 
         if (savedInstanceState == null) {
             FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
@@ -45,7 +45,7 @@ public class MainActivity extends FragmentActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(de.sauernetworks.firmware_updater.R.menu.main, menu);
+        getMenuInflater().inflate(de.sauernetworks.stm_bluetooth_flashloader.R.menu.main, menu);
         return true;
     }
 

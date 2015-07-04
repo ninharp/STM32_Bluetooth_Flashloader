@@ -110,7 +110,8 @@
         android:orientation="horizontal"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal">
+        android:layout_gravity="center_horizontal"
+        android:paddingTop="30dp">
 
         <Button
             android:layout_width="wrap_content"
@@ -122,9 +123,24 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/button_download_firmware"
-            android:id="@+id/button_download_firmware" />
+            android:id="@+id/button_download_memory" />
 
     </LinearLayout>
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/button_upload_memory"
+        android:id="@+id/button_upload_memory"
+        android:layout_gravity="center_horizontal" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="@string/textview_log"
+        android:id="@+id/textView"
+        android:textStyle="bold" />
 
     <ScrollView
         android:layout_width="match_parent"

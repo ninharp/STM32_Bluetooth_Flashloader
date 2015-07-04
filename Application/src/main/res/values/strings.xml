@@ -19,10 +19,12 @@
     <!--  Bluetooth -->
     <string name="send">Send</string>
     <string name="not_connected">You are not connected to a device</string>
-    <string name="bt_not_enabled_leaving">Bluetooth was not enabled. Leaving STM32 Firmware Updater Test.</string>
-    <string name="title_connecting">connecting...</string>
+    <string name="bt_not_enabled_leaving">Bluetooth was not enabled. Leaving STM8/32 Bluetooth Flashloader</string>
+    <string name="title_connecting">connecting…</string>
     <string name="title_connected_to">connected to <xliff:g id="device_name">%1$s</xliff:g></string>
     <string name="title_not_connected">not connected</string>
+    <string name="title_about">About…</string>
+    <string name="about_image_descr">STM Logo</string>
 
     <!--  DeviceListActivity -->
     <string name="scanning">scanning for devices...</string>
@@ -41,14 +43,52 @@
     <string name="button_gid">5. GID CMD</string>
     <string name="button_gocmd">Reset</string>
     <string name="button_read_memory">Read Memory</string>
-    <string name="button_download_firmware">Download Firmware</string>
+    <string name="button_download_firmware">Download Memory</string>
     <string name="button_check_version">Check for Update</string>
     <string name="button_erase_memory">Erase Memory</string>
     <string name="button_write_memory">Write Memory</string>
+    <string name="button_upload_memory">Upload Memory</string>
+
+    <!-- Othe UI elements -->
+    <string name="textview_log">Log:</string>
 
     <!-- Preferences -->
-    <string name="pref_misc_category">Miscellaneous Settings</string>
+    <string name="pref_misc_category_title">Miscellaneous</string>
     <string name="pref_debug_title">Debug</string>
     <string name="pref_debug_summary">Debugging enabled</string>
+    <string name="pref_read_category_title">Read Memory</string>
+    <string name="pref_fullread_title">Full Readout of Memory</string>
+    <string name="pref_fullread_summary">Read out the whole memory instead of skipping empty bytes</string>
+    <string name="pref_showonlymatching_summary">Shows only matching devices which contain following text sequence</string>
+    <string name="pref_showonlymatching_title">Show only matching devices</string>
+    <string name="pref_showdevicematch_summary">Sequence: <b><xliff:g id="device_name">%1$s</xliff:g></b></string>
+    <string name="pref_showdevicematch_title">Device Match Text Sequence</string>
+    <string name="pref_showlog_summary">Shows the Logfile</string>
+    <string name="pref_showlog_title">Show Log</string>
+    <string name="pref_syslog_summary">Logs messages to Syslog</string>
+    <string name="pref_syslog_title">Log to Syslog</string>
+    <string name="pref_log_summary">Logs messages to file</string>
+    <string name="pref_log_title">Log to file</string>
+    <string name="pref_logging_category_summary">Logging and Debugging Options</string>
+    <string name="pref_logging_category_title">Logging and Debug</string>
+    <string name="pref_skipbytes_summary">Skip how many bytes of 0xFF if full readout is disabled!</string>
+    <string name="pref_skipbytes_title">Readout Skipping Bytes</string>
+    <string name="pref_resetwrite_summary">Perform a device reset on successful write process</string>
+    <string name="pref_resetwrite_title">Reset device</string>
+    <string name="pref_writememory_category_title">Write Memory</string>
+    <string name="pref_bootloader_category_summary">Bootloader specific options</string>
+    <string name="pref_bootloader_category_title">Bootloader</string>
+    <string name="pref_eraseall_summary">Erase the whole memory before writing</string>
+    <string name="pref_eraseall_title">Erase memory</string>
+    <string name="pref_sendbootloadercommand_summary">Send a special sequence of hex bytes to device to initiate bootloader</string>
+    <string name="pref_sendbootloadercommand_title">Send Bootloader Initiate Command</string>
+    <string name="pref_bootloadercommand_summary">Command: <b><xliff:g id="magic_string">%1$s</xliff:g></b></string>
+    <string name="pref_bootloadercommand_title">Bootloader Command</string>
+    <string name="pref_bootloaderinitdelay_summary">Delay to wait after sending the bootloader command to device (in ms)\n0 means no delay</string>
+    <string name="pref_bootloaderinitdelay_title">Bootloader Init Delay</string>
+    <string name="pref_misc_category_summary">Miscellaneous options to change</string>
+    <string name="pref_read_category_summary">Reading memory options</string>
+    <string name="pref_writememory_category_summary">Writing memory options</string>
+    <string name="pref_resetread_summary">Perform a device reset on successful read</string>
 
 </resources>

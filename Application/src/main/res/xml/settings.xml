@@ -1,12 +1,127 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" >
+    <PreferenceScreen
+        android:summary="@string/pref_bootloader_category_summary"
+        android:title="@string/pref_bootloader_category_title"
+        android:icon="@android:drawable/ic_menu_rotate">
 
-    <PreferenceCategory android:title="@string/pref_misc_category" >
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="prefSendBootloaderCommand"
+            android:summary="@string/pref_sendbootloadercommand_summary"
+            android:title="@string/pref_sendbootloadercommand_title"/>
+        <EditTextPreference
+            android:defaultValue="magic string"
+            android:dependency="prefSendBootloaderCommand"
+            android:key="prefBootloaderCommand"
+            android:summary="@string/pref_bootloadercommand_summary"
+            android:title="@string/pref_bootloadercommand_title"/>
+        <EditTextPreference
+            android:defaultValue="1000"
+            android:dependency="prefSendBootloaderCommand"
+            android:key="prefBootloaderInitDelay"
+            android:summary="@string/pref_bootloaderinitdelay_summary"
+            android:title="@string/pref_bootloaderinitdelay_title"/>
+
+    </PreferenceScreen>
+
+    <PreferenceScreen
+        android:summary="@string/pref_read_category_summary"
+        android:title="@string/pref_read_category_title"
+        android:icon="@android:drawable/ic_menu_upload">
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="prefFullRead"
+            android:summary="@string/pref_fullread_summary"
+            android:title="@string/pref_fullread_title" />
+
+        <ListPreference
+            android:key="prefSkipBytes"
+            android:summary="@string/pref_skipbytes_summary"
+            android:defaultValue="32"
+            android:title="@string/pref_skipbytes_title"
+            android:entries="@array/pref_skipbytes_entries"
+            android:entryValues="@array/pref_skipbytes_values"/>
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="prefResetRead"
+            android:summary="@string/pref_resetread_summary"
+            android:title="@string/pref_resetwrite_title" />
+
+    </PreferenceScreen>
+
+    <PreferenceScreen
+        android:summary="@string/pref_writememory_category_summary"
+        android:title="@string/pref_writememory_category_title"
+        android:icon="@android:drawable/ic_menu_save">
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="prefEraseAll"
+            android:summary="@string/pref_eraseall_summary"
+            android:title="@string/pref_eraseall_title" />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="prefResetWrite"
+            android:summary="@string/pref_resetwrite_summary"
+            android:title="@string/pref_resetwrite_title" />
+    </PreferenceScreen>
+
+
+    <PreferenceScreen
+        android:title="@string/pref_misc_category_title"
+        android:summary="@string/pref_misc_category_summary"
+        android:icon="@android:drawable/ic_menu_manage">
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="prefShowOnlyMatchingDevices"
+            android:summary="@string/pref_showonlymatching_summary"
+            android:title="@string/pref_showonlymatching_title" />
+        <EditTextPreference
+            android:key="prefShowDeviceMatch"
+            android:dependency="prefShowOnlyMatchingDevices"
+            android:summary="@string/pref_showdevicematch_summary"
+            android:title="@string/pref_showdevicematch_title" />
+
+    </PreferenceScreen>
+
+    <PreferenceScreen
+        android:icon="@android:drawable/ic_menu_close_clear_cancel"
+        android:summary="@string/pref_logging_category_summary"
+        android:title="@string/pref_logging_category_title">
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="prefLog"
+            android:summary="@string/pref_log_summary"
+            android:title="@string/pref_log_title" />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="prefSyslog"
+            android:summary="@string/pref_syslog_summary"
+            android:title="@string/pref_syslog_title" />
+
+        <Preference
+            android:key="prefShowLog"
+            android:summary="@string/pref_showlog_summary"
+            android:title="@string/pref_showlog_title">
+            <intent
+                android:action="android.intent.action.MAIN"
+                android:targetPackage="de.sauernetworks.stm32_bluetooth_flashloader"
+                android:targetClass="de.sauernetworks.stm32_bluetooth_flashloader.ShowLog" />
+        </Preference>
+
         <CheckBoxPreference
             android:defaultValue="false"
             android:key="prefDebug"
             android:summary="@string/pref_debug_summary"
             android:title="@string/pref_debug_title" />
-    </PreferenceCategory>
+
+    </PreferenceScreen>
 
 </PreferenceScreen>

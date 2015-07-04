@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="pref_skipbytes_entries">
+        <item>16 bytes</item>
+        <item>32 bytes</item>
+        <item>64 bytes</item>
+        <item>128 bytes</item>
+        <item>256 bytes</item>
+        <item>512 bytes</item>
+    </string-array>
+
+    <string-array name="pref_skipbytes_values">
+        <item>16</item>
+        <item>32</item>
+        <item>64</item>
+        <item>128</item>
+        <item>256</item>
+        <item>512</item>
+    </string-array>
+</resources>

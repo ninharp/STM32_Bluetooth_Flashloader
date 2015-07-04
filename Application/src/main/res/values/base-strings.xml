@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
-    <string name="app_name">STM32 Firmware Updater Test</string>
+    <string name="app_name">STM8/32 Bluetooth Flashloader</string>
 </resources>

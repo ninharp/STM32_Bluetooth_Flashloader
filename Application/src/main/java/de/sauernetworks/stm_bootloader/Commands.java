@@ -1,4 +1,4 @@
-package de.sauernetworks.stm32bootloader;
+package de.sauernetworks.stm_bootloader;
 
 /**
  * Created by michael on 28.06.15.
@@ -30,12 +30,13 @@ public class Commands {
     private boolean write_in_progress = false;
     private boolean write_complete = false;
     private boolean auto_read_out = false;
-
+    private boolean auto_write_to = false;
     private boolean command_running = false;
 
     private int ver_major = 0;
     private int ver_minor = 0;
     private int ver_build = 0;
+    private int skipBytes;
 
     public Commands() {
         commands[0] = new Command((byte) 0x00, "Get Command");
@@ -63,6 +64,11 @@ public class Commands {
         if (cmd_active_count <= active_commands.length-1)
             active_commands[cmd_active_count++] = cmd;
         //LogTextView.d(TAG, String.format("Added active command %02x on pos %d", cmd, (cmd_active_count-1)));
+    }
+
+    public void clearActiveCommands() {
+        cmd_active_count = 0;
+        active_commands = new byte[cmd_count];
     }
 
     public byte[] getActiveCommands() {
@@ -275,5 +281,48 @@ public class Commands {
 
     public void setRead_full(boolean read_full) {
         this.read_full = read_full;
+    }
+
+    public boolean isAuto_write_to() {
+        return auto_write_to;
+    }
+
+    public void setAuto_write_to(boolean auto_write_to) {
+        this.auto_write_to = auto_write_to;
+    }
+
+    public void setSkipBytes(int skipBytes) {
+        this.skipBytes = skipBytes;
+    }
+
+    public void resetStates() {
+        setAuto_read_out(false);
+        setAuto_write_to(false);
+        setGet_in_progress(false);
+        setWrite_complete(false);
+        setWrite_in_progress(false);
+        setErase_complete(false);
+        setErase_in_progress(false);
+        setRead_complete(false);
+        setRead_full(false);
+        setRead_in_progress(false);
+        setGid_complete(false);
+        setGid_in_progress(false);
+        setGvrp_in_progress(false);
+        setGvrp_complete(false);
+        setInit_complete(false);
+        setInit_in_progress(false);
+        setGo_complete(false);
+        setGo_in_progress(false);
+        setVersion_complete(false);
+        setVersion_in_progress(false);
+        setVer_major(0);
+        setVer_minor(0);
+        setVer_build(0);
+        setRunning(false);
+    }
+
+    public int getSkipBytes() {
+        return skipBytes;
     }
 }

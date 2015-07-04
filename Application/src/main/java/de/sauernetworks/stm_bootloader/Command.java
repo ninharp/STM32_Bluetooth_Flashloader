@@ -1,4 +1,4 @@
-package de.sauernetworks.stm32bootloader;
+package de.sauernetworks.stm_bootloader;
 
 /**
  * Created by michael on 28.06.15.
