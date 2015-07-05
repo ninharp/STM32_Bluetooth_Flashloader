@@ -1,5 +1,23 @@
-package de.sauernetworks.stm_bluetooth_flashloader;
-
+package de.sauernetworks.stm32_bluetooth_flashloader;
+/**
+ * stm32_bluetooth_flashloader - Open Source Android App to flash ST STM32 over bluetooth
+ * Copyright (C) 2015 Michael Sauer <sauer.uetersen@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *
+ **/
 public interface Constants {
     int MESSAGE_STATE_CHANGE = 1;
     int MESSAGE_READ = 2;
@@ -34,14 +52,8 @@ public interface Constants {
     String DEVICE_NAME = "device_name";
     String TOAST = "toast";
 
-    // TODO firmware check
-    int FIRMWARE_MIN_MINOR = 4;
-    int FIRMWARE_MIN_BUILD = 800;
-
     String FIRMWARE_FILENAME = "backup";
     String FIRMWARE_EXTENSION = ".bin";
-
-    int FIRMWARE_MAX_EMPTY_BYTES = 32;
 
     long STM32_START_ADDRESS = 0x08000000;
     byte STM32_PID = 0x33;

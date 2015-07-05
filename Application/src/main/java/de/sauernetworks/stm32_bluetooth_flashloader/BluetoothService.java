@@ -1,11 +1,31 @@
-package de.sauernetworks.stm_bluetooth_flashloader;
-
+package de.sauernetworks.stm32_bluetooth_flashloader;
+/**
+ * stm32_bluetooth_flashloader - Open Source Android App to flash ST STM32 over bluetooth
+ * Copyright (C) 2015 Michael Sauer <sauer.uetersen@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *
+ * Created by Michael Sauer at 01:10 on 28.06.15
+ **/
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
@@ -519,7 +539,7 @@ public class BluetoothService {
     }
 
     public boolean writeToFile(byte[] array, boolean overwrite) {
-        String path = mContext.getFilesDir().toString() + "/";
+        String path = Environment.getExternalStorageDirectory() + "//STM32//";
         String filepath;
         if (mCommands.getVer_major() > 0) {
             filepath = path + String.format("%s_%d_%d_build%d",  Constants.FIRMWARE_FILENAME, mCommands.getVer_major(), mCommands.getVer_minor(), mCommands.getVer_build()) + Constants.FIRMWARE_EXTENSION;

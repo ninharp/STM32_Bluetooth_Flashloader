@@ -19,7 +19,7 @@
     <!--  Bluetooth -->
     <string name="send">Send</string>
     <string name="not_connected">You are not connected to a device</string>
-    <string name="bt_not_enabled_leaving">Bluetooth was not enabled. Leaving STM8/32 Bluetooth Flashloader</string>
+    <string name="bt_not_enabled_leaving">Bluetooth was not enabled. Leaving STM32 Bluetooth Flashloader</string>
     <string name="title_connecting">connecting…</string>
     <string name="title_connected_to">connected to <xliff:g id="device_name">%1$s</xliff:g></string>
     <string name="title_not_connected">not connected</string>
@@ -51,6 +51,11 @@
 
     <!-- Othe UI elements -->
     <string name="textview_log">Log:</string>
+
+    <!-- Dialog Start Bootloader Info -->
+    <string name="dialog_start_bootloader_info_message">Starting now the bootloader on device to proceed!\n\nIf you want to use it with the boot pins, you had to wire a high level to BOOT0 pin and reset the device</string>
+    <string name="dialog_start_bootloader_info_button_start">Start</string>
+    <string name="dialog_start_bootloader_info_button_cancel">Cancel</string>
 
     <!-- Preferences -->
     <string name="pref_misc_category_title">Miscellaneous</string>
@@ -90,5 +95,7 @@
     <string name="pref_read_category_summary">Reading memory options</string>
     <string name="pref_writememory_category_summary">Writing memory options</string>
     <string name="pref_resetread_summary">Perform a device reset on successful read</string>
+    <string name="pref_verbose_summary">Verbosity Level to use</string>
+    <string name="pref_verbose_title">Verbose Level</string>
 
 </resources>

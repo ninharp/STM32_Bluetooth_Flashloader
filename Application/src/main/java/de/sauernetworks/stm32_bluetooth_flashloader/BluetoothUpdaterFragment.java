@@ -1,26 +1,33 @@
-/*
- * Copyright (C) 2014 The Android Open Source Project
+/**
+ * stm32_bluetooth_flashloader - Open Source Android App to flash ST STM32 over bluetooth
+ * Copyright (C) 2015 Michael Sauer <sauer.uetersen@gmail.com>
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *
+ * Created by Michael Sauer at 01:10 on 28.06.15
+ **/
 
-package de.sauernetworks.stm_bluetooth_flashloader;
+package de.sauernetworks.stm32_bluetooth_flashloader;
 
 import android.app.ActionBar;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -38,24 +45,25 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
 
 import de.sauernetworks.stm_bootloader.Commands;
-import de.sauernetworks.tools.AboutDialog;
 import de.sauernetworks.tools.FileDialog;
 import de.sauernetworks.tools.Logger;
 
-import static de.sauernetworks.stm_bootloader.Protocol.*;
+import static de.sauernetworks.stm_bootloader.Protocol.STM32_BYTE_COUNT;
+import static de.sauernetworks.stm_bootloader.Protocol.STM32_PAGE_COUNT;
 
 /**
  * This fragment controls Bluetooth to communicate with other devices.
  */
 public class BluetoothUpdaterFragment extends Fragment {
 
-    private static final String TAG = "STM_Bluetooth_Flashloader";
+    private static final String TAG = "STM32_Bluetooth_Flashloader";
 
     // Intent request codes
     private static final int REQUEST_CONNECT_DEVICE_SECURE = 1;
@@ -65,6 +73,7 @@ public class BluetoothUpdaterFragment extends Fragment {
     private static final int DIALOG_UPLOAD_PROGRESS = 1;
     private static final int DIALOG_CONNECT_PROGRESS = 2;
     private static final int DIALOG_ERASE_PROGRESS = 3;
+    private static final int DIALOG_START_BOOTLOADER_INFO = 4;
 
     private long firmware_size = 0;
 
@@ -82,6 +91,10 @@ public class BluetoothUpdaterFragment extends Fragment {
     private Button mDownloadMemoryButton;
     private Button mUploadMemoryButton;
     private TextView mLogTextView;
+    private LinearLayout mDebugLayout1;
+    private LinearLayout mDebugLayout2;
+    private LinearLayout mDebugLayout3;
+    private LinearLayout mDebugLayout4;
 
     private ProgressDialog mProgressDialog;
 
@@ -92,7 +105,8 @@ public class BluetoothUpdaterFragment extends Fragment {
     private Commands mCommands;
     private Logger mLog;
     private SharedPreferences sharedPrefs;
-    FileDialog fileDialog;
+    FileDialog fileWriteDialog;
+    FileDialog fileReadDialog;
     /* Preferences */
     private static String prefShowDeviceMatch;
     private String prefSkipBytes;
@@ -107,6 +121,7 @@ public class BluetoothUpdaterFragment extends Fragment {
     private boolean prefSendBootloaderCommand = true;
     private static String prefBootloaderCommand;
     private String prefBootloaderInitDelay;
+    private int prefVerbose = 2;
 
     long timerTemp = 0;
     long timeReadMemory = 0;
@@ -118,34 +133,15 @@ public class BluetoothUpdaterFragment extends Fragment {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
         // Get local Bluetooth adapter
-        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        mLog = new Logger(this.getActivity(), true, true, TAG, 9);
         sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this.getActivity());
 
+        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         // If the adapter is null, then Bluetooth is not supported
         if (mBluetoothAdapter == null) {
             FragmentActivity activity = getActivity();
             Toast.makeText(activity, "Bluetooth is not available", Toast.LENGTH_LONG).show();
             activity.finish();
         }
-
-        File mPath = new File(Environment.getExternalStorageDirectory() + "//STM32//");
-        fileDialog = new FileDialog(this.getActivity(), mPath);
-        fileDialog.setFileEndsWith(".bin");
-        //fileDialog.addFileListener(new FileDialog.FileSelectedListener() {
-        //    public void fileSelected(File file) {
-        //        mLog.LogF("selected file " + file.toString());
-        //    }
-        //});
-        //fileDialog.addDirectoryListener(new FileDialog.DirectorySelectedListener() {
-        //  public void directorySelected(File directory) {
-        //      Log.d(getClass().getName(), "selected dir " + directory.toString());
-        //  }
-        //});
-        //fileDialog.setSelectDirectoryOption(false);
-        //fileDialog.showDialog();
-
-        readConfiguration();
     }
 
     @Override
@@ -230,6 +226,26 @@ public class BluetoothUpdaterFragment extends Fragment {
                 mProgressDialog.setCancelable(false);
                 mProgressDialog.show();
                 break;
+            case DIALOG_START_BOOTLOADER_INFO:
+                AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+                builder.setMessage(R.string.dialog_start_bootloader_info_message)
+                        .setPositiveButton(R.string.dialog_start_bootloader_info_button_start, new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int id) {
+                                final Handler handler = new Handler();
+                                handler.postDelayed(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        mBluetoothService.sendInit();
+                                    }
+                                }, 500);
+                            }
+                        })
+                        .setNegativeButton(R.string.dialog_start_bootloader_info_button_cancel, new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int id) {
+                                // User cancelled the dialog
+                            }
+                        }).show();
+                break;
         }
     }
 
@@ -261,25 +277,38 @@ public class BluetoothUpdaterFragment extends Fragment {
         mUploadMemoryButton = (Button) view.findViewById(R.id.button_upload_memory);
         mCheckUpdateButton = (Button) view.findViewById(R.id.button_check_version);
         mLogTextView = (TextView) view.findViewById(R.id.list_log);
-        LogTextView("Started!\n");
+        mDebugLayout1 = (LinearLayout) view.findViewById(R.id.layout_debug_1);
+        mDebugLayout2 = (LinearLayout) view.findViewById(R.id.layout_debug_2);
+        mDebugLayout3 = (LinearLayout) view.findViewById(R.id.layout_debug_3);
+        mDebugLayout4 = (LinearLayout) view.findViewById(R.id.layout_debug_4);
+        mLog = new Logger(this.getActivity(), true, true, TAG, 9);
+
+        File mPath = new File(Environment.getExternalStorageDirectory() + "//STM32//");
+        fileWriteDialog = new FileDialog(this.getActivity(), mPath);
+        fileWriteDialog.setFileEndsWith(".bin");
+
+        fileReadDialog = new FileDialog(this.getActivity(), mPath);
+        fileReadDialog.setSelectDirectoryOption(false);
+
+        readConfiguration();
+        LogTextView(1, "Started!\n");
     }
+
+
 
     /**
      * Set up the UI and background operations for chat.
      */
     private void setupUI() {
-        mLog.Log("setupUI()");
-
-        //String message = textView.getText().toString();
-        //sendMessage(message);
+        mLog.Log(9, "setupUI()");
 
         mBootloaderButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 mCommands.setAuto_read_out(false);
                 mCommands.setAuto_write_to(false);
-                mLog.Log("Sending Bootloader jump command");
-                LogTextView("Sending Bootloader jump command");
+                mLog.Log(3, "Sending Bootloader jump command");
+                LogTextView(3, "Sending Bootloader jump command");
                 mBluetoothService.send_ml_packet(0x03, "y 0 0");
             }
         });
@@ -358,7 +387,7 @@ public class BluetoothUpdaterFragment extends Fragment {
         mCheckUpdateButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                LogTextView("Getting running Firmware Version");
+                LogTextView(3, "Getting running Firmware Version");
                 mBluetoothService.getVersion();
             }
         });
@@ -375,29 +404,32 @@ public class BluetoothUpdaterFragment extends Fragment {
                 } else {
                     mLog.Log(8, "Init Delay not in Range. Setting default value of 1000ms");
                 }
-                mCommands.setAuto_read_out(true);
-                if (isPrefSendBootloaderCommand()) {
-                    //mBluetoothService.getVersion(); // MagicLight specific command
-                    handler.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            mBluetoothService.send_ml_packet(0x03, "y 0 0");
-                        }
-                    }, 500);
-                    handler.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            mBluetoothService.sendInit();
-                        }
-                    }, initDelay + 1);
-                } else {
-                    handler.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            mBluetoothService.sendInit();
-                        }
-                    }, 500);
-                }
+                final long finalInitDelay = initDelay;
+                fileReadDialog.addDirectoryListener(new FileDialog.DirectorySelectedListener() {
+                      public void directorySelected(File directory) {
+                          mLog.Log(7, "Selected dir: " + directory.toString());
+                          mCommands.setAuto_read_out(true);
+                          if (isPrefSendBootloaderCommand()) {
+                              //mBluetoothService.getVersion(); // MagicLight specific command
+                              handler.postDelayed(new Runnable() {
+                                  @Override
+                                  public void run() {
+                                      mBluetoothService.send_ml_packet(0x03, "y 0 0");
+                                  }
+                              }, 500);
+                              handler.postDelayed(new Runnable() {
+                                  @Override
+                                  public void run() {
+                                      mBluetoothService.sendInit();
+                                  }
+                              }, finalInitDelay + 1);
+                          } else {
+                              mLog.Log(5, "Starting Bootloader info dialog");
+                              createDialog(DIALOG_START_BOOTLOADER_INFO);
+                          }
+                      }
+                });
+                fileReadDialog.showDialog();
             }
         });
 
@@ -414,9 +446,9 @@ public class BluetoothUpdaterFragment extends Fragment {
                     mLog.Log(8, "Init Delay not in Range. Setting default value of 1000ms");
                 }
                 final long finalInitDelay = initDelay;
-                fileDialog.addFileListener(new FileDialog.FileSelectedListener() {
+                fileWriteDialog.addFileListener(new FileDialog.FileSelectedListener() {
                     public void fileSelected(File file) {
-                        mLog.LogF("selected file " + file.toString());
+                        mLog.Log(7, "selected file " + file.toString());
                         mBluetoothService.setMemoryFilename(file.toString());
                         mCommands.setAuto_write_to(true);
                         if (isPrefSendBootloaderCommand()) {
@@ -443,7 +475,7 @@ public class BluetoothUpdaterFragment extends Fragment {
                         }
                     }
                 });
-                fileDialog.showDialog();
+                fileWriteDialog.showDialog();
                 /*
                 mCommands.setAuto_write_to(true);
                 mBluetoothService.getVersion();
@@ -468,7 +500,7 @@ public class BluetoothUpdaterFragment extends Fragment {
         mBluetoothService = new BluetoothService(getActivity(), mHandler, mCommands, mLog);
 
     }
-
+    
     /**
      * Updates the status on the action bar.
      *
@@ -516,16 +548,6 @@ public class BluetoothUpdaterFragment extends Fragment {
                         case BluetoothService.STATE_CONNECTED:
                             setStatus(getString(R.string.title_connected_to, mConnectedDeviceName));
                             closeDialog();
-                            /*
-                            final Handler handler = new Handler();
-                            handler.postDelayed(new Runnable() {
-                                @Override
-                                public void run() {
-                                    LogTextView.d(TAG, "Retrieving current Firmware Version");
-                                    mBluetoothService.getVersion();
-                                }
-                            }, 100);
-                            */
                             break;
                         case BluetoothService.STATE_CONNECTING:
                             setStatus(R.string.title_connecting);
@@ -557,34 +579,37 @@ public class BluetoothUpdaterFragment extends Fragment {
                     */
                     break;
                 case Constants.MESSAGE_ACK_RECEIVED:
+                    mLog.Log(9, "Protocol: ACK Received!");
                     //LogTextView.d(TAG, "ACK Received!");
                     break;
                 case Constants.MESSAGE_NACK_RECEIVED:
+                    mLog.Log(9, "Protocol: NACK Received!");
                     //LogTextView.d(TAG, "NACK Received!");
                     break;
                 case Constants.MESSAGE_INIT_COMPLETE:
-                    mLog.Log("Init sequence complete!");
+                    mLog.Log(3, "Init sequence complete!");
                     if (mCommands.isAuto_read_out() || mCommands.isAuto_write_to())
                         mBluetoothService.sendGetCmd();
-                    //mInitButton.setEnabled(false);
-                    LogTextView("Init Sequence complete!");
+                    LogTextView(3, "Init Sequence complete!");
                     break;
                 case Constants.MESSAGE_INIT_FAILED:
-                    mLog.Log("Init sequence failed or already sent!");
-                    LogTextView("Init Sequence failed or already sent!");
+                    mLog.Log(3, "Init sequence failed or already sent!");
+                    LogTextView(3, "Init Sequence failed or already sent!");
                     break;
                 case Constants.MESSAGE_VERSION_COMPLETE:
                     int[] verBuf = (int[]) msg.obj;
                     String ver = String.format("Firmware Version: %d.%d.%d", verBuf[0], verBuf[1], verBuf[2]);
-                    LogTextView(ver);
+                    LogTextView(3, ver);
                     mLog.Log(ver);
                     break;
                 case Constants.MESSAGE_ERASE_MEMORY_START:
-                    LogTextView("Erase Memory started!");
+                    LogTextView(4, "Erase Memory started!");
+                    mLog.Log(4, "Erase Memory started!");
                     createDialog(DIALOG_ERASE_PROGRESS);
                     break;
                 case Constants.MESSAGE_ERASE_MEMORY_COMPLETE:
-                    LogTextView("Erase Memory completed!");
+                    LogTextView(3, "Erase Memory completed!");
+                    mLog.Log(3, "Erase Memory completed!");
                     closeDialog();
                     if (mCommands.isAuto_read_out()) {
                         mBluetoothService.readMemory();
@@ -594,7 +619,8 @@ public class BluetoothUpdaterFragment extends Fragment {
                     }
                     break;
                 case Constants.MESSAGE_ERASE_MEMORY_FAILED:
-                    LogTextView("Erase Memory failed!");
+                    LogTextView(3, "Erase Memory failed!");
+                    mLog.Log(3, "Erase Memory failed!");
                     Toast.makeText(activity, "Mass erase of memory failed!", Toast.LENGTH_SHORT).show();
                     closeDialog();
                     break;
@@ -602,7 +628,7 @@ public class BluetoothUpdaterFragment extends Fragment {
                     byte readBuf = (byte) msg.obj;
                     String temp = String.format("Bootloader Version: %02x", readBuf);
                     if (!mCommands.isGet_complete()) {
-                        LogTextView(temp);
+                        LogTextView(3, temp);
                     }
                     mLog.Log(temp);
                     break;
@@ -612,7 +638,8 @@ public class BluetoothUpdaterFragment extends Fragment {
                         for (byte aGetBuf : getBuf) {
                             mCommands.addCommand(aGetBuf);
                             String getCommand = String.format("Command: %s", mCommands.getCommandName(aGetBuf));
-                            LogTextView(getCommand);
+                            LogTextView(5, getCommand);
+                            mLog.Log(5, getCommand);
                         }
                     }
                     mCommands.setGet_complete(true);
@@ -624,40 +651,29 @@ public class BluetoothUpdaterFragment extends Fragment {
                     for (byte aGidBuf : gidBuf) {
                         String gid = String.format("Product ID: 0x04%02x", aGidBuf);
                         if (!mCommands.isGid_complete())
-                            LogTextView(gid);
-                        mLog.Log(gid);
+                            LogTextView(2, gid);
+                        mLog.Log(2, gid);
                     }
-                    if (gidBuf[0] == Constants.STM32_PID) {
-                        if (!mCommands.isGid_complete())
-                            LogTextView("Correct Product ID found! Update possible!");
-                        mCommands.setGid_complete(true);
-                        if (!mCommands.isAuto_read_out() && mCommands.isAuto_write_to()) {
-                            if (isPrefEraseAll())
-                                mBluetoothService.sendEraseCmd();
-                            else
-                                mBluetoothService.writeMemory();
+                    mCommands.setGid_complete(true);
+                    if (!mCommands.isAuto_read_out() && mCommands.isAuto_write_to()) {
+                        if (isPrefEraseAll()) {
+                            mBluetoothService.sendEraseCmd();
+                        } else {
+                            mBluetoothService.writeMemory();
                         }
-                        else if (mCommands.isAuto_read_out() && !mCommands.isAuto_write_to())
-                            mBluetoothService.readMemory();
-                    } else {
-                        Toast.makeText(activity, "Wrong product found! No firmware updates/downloads possible", Toast.LENGTH_SHORT).show();
                     }
-
+                    else if (mCommands.isAuto_read_out() && !mCommands.isAuto_write_to())
+                        mBluetoothService.readMemory();
                     break;
                 case Constants.MESSAGE_READ_MEMORY_START:
-                    LogTextView("Downloading memory file...");
+                    LogTextView(3, "Downloading memory to file.. ");
+                    mLog.Log(3, "Downloading memory to file.. ");
                     timerTemp = System.currentTimeMillis();
                     createDialog(DIALOG_DOWNLOAD_PROGRESS);
                     break;
                 case Constants.MESSAGE_READ_MEMORY_BYTE:
                     int[] numByte = (int[]) msg.obj;
-                    //String numByteText = String.format("READ Byte %d on page %d received!", numByte[1], numByte[0]);
-                    //LogTextView(numByteText);
-
-                    //mProgressDialog.setProgress((numByte[0] * 100) / Protocol.STM32_PAGE_COUNT);
                     mProgressDialog.setProgress(numByte[0]);
-                    //mProgressDialog.setSecondaryProgress((numByte[0] * 100) / Protocol.STM32_BYTE_COUNT);
-                    //mProgressDialog.setMessage("Downloading memory..\r\n(Page "+String.valueOf(numByte[0]+1)+"/"+String.valueOf(Protocol.STM32_PAGE_COUNT)+")");
                     if (isPrefFullRead())
                         mProgressDialog.setMessage("Downloading whole memory.. ("+String.valueOf(((numByte[0]+1)* STM32_BYTE_COUNT)/1024)+"/"+((STM32_BYTE_COUNT*STM32_PAGE_COUNT)/1024)+" kb)");
                     else
@@ -671,13 +687,13 @@ public class BluetoothUpdaterFragment extends Fragment {
                     int b = (written_pages * STM32_BYTE_COUNT);
                     if (b > 1024) {
                         int kb = b / 1024;
-                        mLog.Log("Download memory complete in "+String.valueOf(timeReadMemory)+" seconds! (" + kb + "kb)");
+                        mLog.Log(1, "Download memory complete in "+String.valueOf(timeReadMemory)+" seconds! (" + kb + "kb)");
                         Toast.makeText(activity, "Download memory complete in "+String.valueOf(timeReadMemory)+" seconds! (" + kb + "kb)", Toast.LENGTH_SHORT).show();
-                        LogTextView("Download memory complete in "+String.valueOf(timeReadMemory)+" seconds! (" + kb + "kb)");
+                        LogTextView(1, "Download memory complete in "+String.valueOf(timeReadMemory)+" seconds! (" + kb + "kb)");
                     } else {
-                        mLog.Log("Download memory complete in "+String.valueOf(timeReadMemory)+" seconds! (" + b + "bytes)");
+                        mLog.Log(1, "Download memory complete in "+String.valueOf(timeReadMemory)+" seconds! (" + b + "bytes)");
                         Toast.makeText(activity, "Download memory complete in "+String.valueOf(timeReadMemory)+" seconds! (" + b + "bytes)", Toast.LENGTH_SHORT).show();
-                        LogTextView("Download memory complete in "+String.valueOf(timeReadMemory)+" seconds! (" + b + "bytes)");
+                        LogTextView(1, "Download memory complete in "+String.valueOf(timeReadMemory)+" seconds! (" + b + "bytes)");
                     }
                     if (mCommands.isAuto_read_out())
                         mBluetoothService.sendGoCmd(); // TODO make switch in settings maybe!?
@@ -690,8 +706,8 @@ public class BluetoothUpdaterFragment extends Fragment {
                         numPage[0] = 1;
                         numPage[1] = 1;
                     }
-                    mLog.Log("Downloading memory failed on Page " + String.valueOf(numPage[0]) + " of " + String.valueOf(STM32_PAGE_COUNT) + " on Byte " + String.valueOf(numPage[1]));
-                    LogTextView("Downloading memory failed on Page " + String.valueOf(numPage[0]) + " of " + String.valueOf(STM32_PAGE_COUNT) + " on Byte " + String.valueOf(numPage[1]));
+                    mLog.Log(1, "Downloading memory failed on Page " + String.valueOf(numPage[0]) + " of " + String.valueOf(STM32_PAGE_COUNT) + " on Byte " + String.valueOf(numPage[1]));
+                    LogTextView(1, "Downloading memory failed on Page " + String.valueOf(numPage[0]) + " of " + String.valueOf(STM32_PAGE_COUNT) + " on Byte " + String.valueOf(numPage[1]));
                     closeDialog();
                     Toast.makeText(activity, "Failed to Download memory", Toast.LENGTH_SHORT).show();
                     break;
@@ -709,15 +725,15 @@ public class BluetoothUpdaterFragment extends Fragment {
                         wrPage[1] = 1;
                         wrPage[2] = 1;
                     }
-                    mLog.Log("Uploading memory failed on Page " + String.valueOf(wrPage[0]) + " of " + String.valueOf(wrPage[2]/ STM32_BYTE_COUNT) + " on Byte " + String.valueOf((wrPage[0] * STM32_BYTE_COUNT) + wrPage[1]));
-                    LogTextView("Uploading memory failed on Page " + String.valueOf(wrPage[0]) + " of " + String.valueOf(wrPage[2]/ STM32_BYTE_COUNT) + " on Byte " + String.valueOf((wrPage[0] * STM32_BYTE_COUNT) + wrPage[1]));
+                    mLog.Log(1, "Uploading memory failed on Page " + String.valueOf(wrPage[0]) + " of " + String.valueOf(wrPage[2]/ STM32_BYTE_COUNT) + " on Byte " + String.valueOf((wrPage[0] * STM32_BYTE_COUNT) + wrPage[1]));
+                    LogTextView(1, "Uploading memory failed on Page " + String.valueOf(wrPage[0]) + " of " + String.valueOf(wrPage[2]/ STM32_BYTE_COUNT) + " on Byte " + String.valueOf((wrPage[0] * STM32_BYTE_COUNT) + wrPage[1]));
                     closeDialog();
                     Toast.makeText(activity, "Failed to upload memory", Toast.LENGTH_SHORT).show();
                     break;
                 case Constants.MESSAGE_WRITE_MEMORY_FILE_ERROR:
                     mCommands.resetStates();
-                    mLog.Log("Uploading memory failed! Cannot open/find memory file");
-                    LogTextView("Uploading memory failed! Cannot open/find memory file");
+                    mLog.Log(1, "Uploading memory failed! Cannot open/find memory file");
+                    LogTextView(1, "Uploading memory failed! Cannot open/find memory file");
                     closeDialog();
                     Toast.makeText(activity, "Failed to open memory file", Toast.LENGTH_SHORT).show();
                     break;
@@ -742,15 +758,15 @@ public class BluetoothUpdaterFragment extends Fragment {
                         size = String.format("(%d bytes)", fileSize);
                     }
 
-                    mLog.Log("Upload memory complete in "+String.valueOf(timeWriteMemory)+" seconds! (" + size + " bytes)");
+                    mLog.Log(1, "Upload memory complete in "+String.valueOf(timeWriteMemory)+" seconds! (" + size + " bytes)");
                     Toast.makeText(activity, "Upload memory complete in "+String.valueOf(timeWriteMemory)+" seconds! (" + size + " bytes)", Toast.LENGTH_SHORT).show();
-                    LogTextView("Upload memory complete in "+String.valueOf(timeWriteMemory)+" seconds! (" + size + " bytes)");
+                    LogTextView(1, "Upload memory complete in "+String.valueOf(timeWriteMemory)+" seconds! (" + size + " bytes)");
                     if (mCommands.isAuto_read_out())
                         if (isPrefResetWrite())
                             mBluetoothService.sendGoCmd();
                     break;
                 case Constants.MESSAGE_GO_COMPLETE:
-                    LogTextView("Restart done!");
+                    LogTextView(2, "GO Command complete! Reset done!");
                     mCommands.resetStates();
                     break;
                 case Constants.MESSAGE_DEVICE_NAME:
@@ -772,8 +788,9 @@ public class BluetoothUpdaterFragment extends Fragment {
     };
 
 
-    public void LogTextView(String message) {
-        mLogTextView.append(message+"\n");
+    public void LogTextView(int i, String message) {
+        if (i >= getPrefVerbose())
+            mLogTextView.append("["+String.valueOf(i)+"] "+message+"\n");
     }
 
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -840,13 +857,9 @@ public class BluetoothUpdaterFragment extends Fragment {
                 startActivityForResult(serverIntent, REQUEST_CONNECT_DEVICE_SECURE);
                 return true;
             case R.id.settings:
-                Intent i = new Intent(this.getActivity(), UserSettingsActivity.class);
-                startActivityForResult(i, Constants.RESULT_SETTINGS);
+                Intent settingsIntent = new Intent(this.getActivity(), UserSettingsActivity.class);
+                startActivityForResult(settingsIntent, Constants.RESULT_SETTINGS);
                 return true;
-            case R.id.about:
-                AboutDialog about = new AboutDialog(this.getActivity());
-                about.setTitle(getResources().getString(R.string.title_about));
-                about.show();
         }
         return super.onOptionsItemSelected(item);
     }
@@ -859,14 +872,44 @@ public class BluetoothUpdaterFragment extends Fragment {
         setPrefFullRead(sharedPrefs.getBoolean("prefFullRead", false));
         mCommands.setRead_full(isPrefFullRead());
         setPrefLog(sharedPrefs.getBoolean("prefLog", true));
+        mLog.setEnabled(isPrefLog());
         setPrefSyslog(sharedPrefs.getBoolean("prefSyslog", false));
+        mLog.setSyslog(isPrefSyslog());
         setPrefShowOnlyMatchingDevices(sharedPrefs.getBoolean("prefShowOnlyMatchingDevices", true));
         setPrefShowDeviceMatch(sharedPrefs.getString("prefShowDeviceMatch", "device_match_here"));
         mCommands.setSkipBytes(Integer.parseInt(sharedPrefs.getString("prefSkipBytes", "32")));
         setPrefBootloaderCommand(sharedPrefs.getString("prefBootloaderCommand", "magic string"));
         setPrefSendBootloaderCommand(sharedPrefs.getBoolean("prefSendBootloaderCommand", true));
         setPrefBootloaderInitDelay(sharedPrefs.getString("prefBootLoaderInit", "1000"));
-        //exitDialogEnabled = sharedPrefs.getBoolean("prefExitDialog", true);
+        try {
+            int verbosity = Integer.parseInt(sharedPrefs.getString("prefVerbose", "2"));
+            setPrefVerbose(verbosity);
+            mLog.Log(8, "Setting verbosity level to "+String.valueOf(verbosity));
+        } catch (NumberFormatException e) {
+            setPrefVerbose(2);
+            mLog.Log(8, "Error on setting verbose level. Falling back to default value of 2");
+            mLog.Log(9, "Error: "+e.getMessage());
+        }
+
+        if (isPrefDebug()) {
+            if (mDebugLayout1 != null)
+                mDebugLayout1.setVisibility(View.VISIBLE);
+            if (mDebugLayout2 != null)
+                mDebugLayout2.setVisibility(View.VISIBLE);
+            if (mDebugLayout3 != null)
+                mDebugLayout3.setVisibility(View.VISIBLE);
+            if (mDebugLayout4 != null)
+                mDebugLayout4.setVisibility(View.VISIBLE);
+        } else {
+            if (mDebugLayout1 != null)
+                mDebugLayout1.setVisibility(View.GONE);
+            if (mDebugLayout2 != null)
+                mDebugLayout2.setVisibility(View.GONE);
+            if (mDebugLayout3 != null)
+                mDebugLayout3.setVisibility(View.GONE);
+            if (mDebugLayout4 != null)
+                mDebugLayout4.setVisibility(View.GONE);
+        }
     }
 
     private void writeConfiguration() {
@@ -976,5 +1019,13 @@ public class BluetoothUpdaterFragment extends Fragment {
 
     public void setPrefResetRead(boolean prefResetRead) {
         this.prefResetRead = prefResetRead;
+    }
+
+    public int getPrefVerbose() {
+        return prefVerbose;
+    }
+
+    public void setPrefVerbose(int prefVerbose) {
+        this.prefVerbose = prefVerbose;
     }
 }

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.sauernetworks.stm_bluetooth_flashloader;
+package de.sauernetworks.stm32_bluetooth_flashloader;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
@@ -69,13 +69,13 @@ public class DeviceListActivity extends Activity {
 
         // Setup the window
         requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
-        setContentView(de.sauernetworks.stm_bluetooth_flashloader.R.layout.activity_device_list);
+        setContentView(de.sauernetworks.stm32_bluetooth_flashloader.R.layout.activity_device_list);
 
         // Set result CANCELED in case the user backs out
         setResult(Activity.RESULT_CANCELED);
 
         // Initialize the button to perform device discovery
-        Button scanButton = (Button) findViewById(de.sauernetworks.stm_bluetooth_flashloader.R.id.button_scan);
+        Button scanButton = (Button) findViewById(de.sauernetworks.stm32_bluetooth_flashloader.R.id.button_scan);
         scanButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 doDiscovery();
@@ -86,16 +86,16 @@ public class DeviceListActivity extends Activity {
         // Initialize array adapters. One for already paired devices and
         // one for newly discovered devices
         ArrayAdapter<String> pairedDevicesArrayAdapter =
-                new ArrayAdapter<String>(this, de.sauernetworks.stm_bluetooth_flashloader.R.layout.device_name);
-        mNewDevicesArrayAdapter = new ArrayAdapter<String>(this, de.sauernetworks.stm_bluetooth_flashloader.R.layout.device_name);
+                new ArrayAdapter<String>(this, de.sauernetworks.stm32_bluetooth_flashloader.R.layout.device_name);
+        mNewDevicesArrayAdapter = new ArrayAdapter<String>(this, de.sauernetworks.stm32_bluetooth_flashloader.R.layout.device_name);
 
         // Find and setCommand up the ListView for paired devices
-        ListView pairedListView = (ListView) findViewById(de.sauernetworks.stm_bluetooth_flashloader.R.id.paired_devices);
+        ListView pairedListView = (ListView) findViewById(de.sauernetworks.stm32_bluetooth_flashloader.R.id.paired_devices);
         pairedListView.setAdapter(pairedDevicesArrayAdapter);
         pairedListView.setOnItemClickListener(mDeviceClickListener);
 
         // Find and setCommand up the ListView for newly discovered devices
-        ListView newDevicesListView = (ListView) findViewById(de.sauernetworks.stm_bluetooth_flashloader.R.id.new_devices);
+        ListView newDevicesListView = (ListView) findViewById(de.sauernetworks.stm32_bluetooth_flashloader.R.id.new_devices);
         newDevicesListView.setAdapter(mNewDevicesArrayAdapter);
         newDevicesListView.setOnItemClickListener(mDeviceClickListener);
 
@@ -115,7 +115,7 @@ public class DeviceListActivity extends Activity {
 
         // If there are paired devices, add each one to the ArrayAdapter
         if (pairedDevices.size() > 0) {
-            findViewById(de.sauernetworks.stm_bluetooth_flashloader.R.id.title_paired_devices).setVisibility(View.VISIBLE);
+            findViewById(de.sauernetworks.stm32_bluetooth_flashloader.R.id.title_paired_devices).setVisibility(View.VISIBLE);
             for (BluetoothDevice device : pairedDevices) {
                 /*if (device.getName().matches(Constants.STM32_NAME_PATTERN))*/
                 if (BluetoothUpdaterFragment.isPrefShowOnlyMatchingDevices()) {
@@ -128,7 +128,7 @@ public class DeviceListActivity extends Activity {
                 }
             }
         } else {
-            String noDevices = getResources().getText(de.sauernetworks.stm_bluetooth_flashloader.R.string.none_paired).toString();
+            String noDevices = getResources().getText(de.sauernetworks.stm32_bluetooth_flashloader.R.string.none_paired).toString();
             pairedDevicesArrayAdapter.add(noDevices);
         }
     }
@@ -154,10 +154,10 @@ public class DeviceListActivity extends Activity {
 
         // Indicate scanning in the title
         setProgressBarIndeterminateVisibility(true);
-        setTitle(de.sauernetworks.stm_bluetooth_flashloader.R.string.scanning);
+        setTitle(de.sauernetworks.stm32_bluetooth_flashloader.R.string.scanning);
 
         // Turn on sub-title for new devices
-        findViewById(de.sauernetworks.stm_bluetooth_flashloader.R.id.title_new_devices).setVisibility(View.VISIBLE);
+        findViewById(de.sauernetworks.stm32_bluetooth_flashloader.R.id.title_new_devices).setVisibility(View.VISIBLE);
 
         // If we're already discovering, stop it
         if (mBtAdapter.isDiscovering()) {
@@ -212,9 +212,9 @@ public class DeviceListActivity extends Activity {
                 // When discovery is finished, change the Activity title
             } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
                 setProgressBarIndeterminateVisibility(false);
-                setTitle(de.sauernetworks.stm_bluetooth_flashloader.R.string.select_device);
+                setTitle(de.sauernetworks.stm32_bluetooth_flashloader.R.string.select_device);
                 if (mNewDevicesArrayAdapter.getCount() == 0) {
-                    String noDevices = getResources().getText(de.sauernetworks.stm_bluetooth_flashloader.R.string.none_found).toString();
+                    String noDevices = getResources().getText(de.sauernetworks.stm32_bluetooth_flashloader.R.string.none_found).toString();
                     mNewDevicesArrayAdapter.add(noDevices);
                 }
             }

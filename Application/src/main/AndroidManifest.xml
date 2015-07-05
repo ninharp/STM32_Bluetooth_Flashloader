@@ -16,7 +16,7 @@
 -->
 
 <manifest
-    package="de.sauernetworks.stm_bluetooth_flashloader"
+    package="de.sauernetworks.stm32_bluetooth_flashloader"
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:versionCode="1"
     android:versionName="1.0">
@@ -35,7 +35,7 @@
         android:theme="@style/AppTheme">
 
         <activity
-            android:name=".MainActivity"
+            android:name="de.sauernetworks.stm32_bluetooth_flashloader.MainActivity"
             android:configChanges="orientation|keyboardHidden"
             android:label="@string/app_name">
             <intent-filter>
@@ -45,12 +45,15 @@
         </activity>
 
         <activity
-            android:name=".DeviceListActivity"
+            android:name="de.sauernetworks.stm32_bluetooth_flashloader.DeviceListActivity"
             android:configChanges="orientation|keyboardHidden"
             android:label="@string/select_device"
             android:theme="@android:style/Theme.Holo.Dialog"/>
 
-        <activity android:name=".UserSettingsActivity" />
+        <activity android:name="de.sauernetworks.stm32_bluetooth_flashloader.UserSettingsActivity" />
+        <activity
+            android:name="de.sauernetworks.stm32_bluetooth_flashloader.AboutActivity"
+            android:theme="@android:style/Theme.Holo.Dialog" />
 
     </application>
 

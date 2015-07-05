@@ -50,6 +50,13 @@
             android:summary="@string/pref_resetread_summary"
             android:title="@string/pref_resetwrite_title" />
 
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:enabled="false"
+            android:key="prefEraseAfterRead"
+            android:summary="Erase whole memory after reading memory"
+            android:title="Erase after Read" />
+
     </PreferenceScreen>
 
     <PreferenceScreen
@@ -106,8 +113,17 @@
             android:summary="@string/pref_syslog_summary"
             android:title="@string/pref_syslog_title" />
 
+        <ListPreference
+            android:defaultValue="3"
+            android:key="prefVerbose"
+            android:summary="@string/pref_verbose_summary"
+            android:title="@string/pref_verbose_title"
+            android:entries="@array/pref_verbose_entries"
+            android:entryValues="@array/pref_verbose_values"/>
+
         <Preference
             android:key="prefShowLog"
+            android:enabled="false"
             android:summary="@string/pref_showlog_summary"
             android:title="@string/pref_showlog_title">
             <intent
@@ -122,6 +138,17 @@
             android:summary="@string/pref_debug_summary"
             android:title="@string/pref_debug_title" />
 
+
     </PreferenceScreen>
+
+    <Preference
+        android:key="prefShowAbout"
+        android:summary="Shows information about this app"
+        android:title="About this App">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="de.sauernetworks.stm32_bluetooth_flashloader"
+            android:targetClass="de.sauernetworks.stm32_bluetooth_flashloader.AboutActivity" />
+    </Preference>
 
 </PreferenceScreen>

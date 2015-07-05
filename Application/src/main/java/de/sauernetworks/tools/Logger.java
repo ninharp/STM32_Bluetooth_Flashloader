@@ -1,23 +1,41 @@
+/**
+ * stm32_bluetooth_flashloader - Open Source Android App to flash ST STM32 over bluetooth
+ * Copyright (C) 2015 Michael Sauer <sauer.uetersen@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *
+ **/
 package de.sauernetworks.tools;
 
 import android.content.Context;
+import android.os.Environment;
 import android.util.Log;
 
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
-/**
- * Created by michael on 01.07.15.
- */
 public class Logger {
+
     String filename = "firmware_updater";
     String fileext = "log";
     String tag = "firmware_updater";
     Context mContext;
     boolean enabled = true;
     boolean syslog = true;
-    int verbose = 9;
+    int verbose = 3;
 
     FileOutputStream osLog;
 
@@ -38,9 +56,8 @@ public class Logger {
     }
 
     private int openLogFile(boolean append) {
-        String path = mContext.getFilesDir().toString() + "/";
+        String path = Environment.getExternalStorageDirectory() + "//STM32//";
         String filepath = path + filename + "." + this.fileext;
-        //LogTextView.d(TAG, path);
         try {
             osLog = new FileOutputStream(filepath, append);
             return 0;
@@ -52,38 +69,42 @@ public class Logger {
 
     public void Log(int verbose, String message) {
         message = String.format("[%d] %s", verbose, message);
-        if (enabled) {
-            if (verbose <= this.verbose) {
-                writeLog(message);
-                if (syslog)
-                    Log.i(tag, message);
-            }
-        }
-    }
-
-    public void Log(String message) {
-        message = String.format("[I] %s", message);
-        if (enabled) {
+        if (verbose <= this.verbose) {
             writeLog(message);
             if (syslog)
                 Log.i(tag, message);
         }
     }
 
-    public void LogF(String message) {
-        writeLog(message);
+    public void Log(String message) {
+        if (verbose >= 9) {
+            message = String.format("[D] %s", message);
+            writeLog(message);
+            if (syslog)
+                Log.d(tag, message);
+        }
     }
 
-    private int writeLog(String message) {
-        try {
-            if (!message.contains("\n"))
-                message = message + "\n";
-            osLog.write(message.getBytes());
-            return 0;
-        } catch (IOException e) {
-            e.printStackTrace();
-            return 1;
+    public void LogF(String message) {
+        if (verbose >= 9) {
+            message = String.format("[D] %s", message);
+            writeLog(message);
         }
+    }
+
+    private boolean writeLog(String message) {
+        if (enabled) {
+            try {
+                if (!message.contains("\n"))
+                    message = message + "\n";
+                osLog.write(message.getBytes());
+                return true;
+            } catch (IOException e) {
+                e.printStackTrace();
+                return false;
+            }
+        }
+        return false;
     }
 
     public String getFileext() {
