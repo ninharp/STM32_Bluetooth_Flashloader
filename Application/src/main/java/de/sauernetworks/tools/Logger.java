@@ -29,9 +29,9 @@ import java.io.IOException;
 
 public class Logger {
 
-    String filename = "firmware_updater";
+    String filename = "debug";
     String fileext = "log";
-    String tag = "firmware_updater";
+    String tag = "stm32_bluetooth_flashloader";
     Context mContext;
     boolean enabled = true;
     boolean syslog = true;

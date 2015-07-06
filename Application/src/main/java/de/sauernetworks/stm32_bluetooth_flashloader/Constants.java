@@ -56,6 +56,5 @@ public interface Constants {
     String FIRMWARE_EXTENSION = ".bin";
 
     long STM32_START_ADDRESS = 0x08000000;
-    byte STM32_PID = 0x33;
     String STM32_NAME_PATTERN = "MagicLightV2-\\w\\w\\w\\w";
 }

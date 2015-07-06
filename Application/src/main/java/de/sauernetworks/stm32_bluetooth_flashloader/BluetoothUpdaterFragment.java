@@ -52,6 +52,7 @@ import android.widget.Toast;
 import java.io.File;
 
 import de.sauernetworks.stm_bootloader.Commands;
+import de.sauernetworks.stm_bootloader.Devices;
 import de.sauernetworks.tools.FileDialog;
 import de.sauernetworks.tools.Logger;
 
@@ -107,6 +108,7 @@ public class BluetoothUpdaterFragment extends Fragment {
     private SharedPreferences sharedPrefs;
     FileDialog fileWriteDialog;
     FileDialog fileReadDialog;
+    private Devices mDevices;
     /* Preferences */
     private static String prefShowDeviceMatch;
     private String prefSkipBytes;
@@ -142,6 +144,7 @@ public class BluetoothUpdaterFragment extends Fragment {
             Toast.makeText(activity, "Bluetooth is not available", Toast.LENGTH_LONG).show();
             activity.finish();
         }
+        mDevices = new Devices();
     }
 
     @Override
@@ -405,31 +408,32 @@ public class BluetoothUpdaterFragment extends Fragment {
                     mLog.Log(8, "Init Delay not in Range. Setting default value of 1000ms");
                 }
                 final long finalInitDelay = initDelay;
-                fileReadDialog.addDirectoryListener(new FileDialog.DirectorySelectedListener() {
+                /*fileReadDialog.addDirectoryListener(new FileDialog.DirectorySelectedListener() {
                       public void directorySelected(File directory) {
                           mLog.Log(7, "Selected dir: " + directory.toString());
-                          mCommands.setAuto_read_out(true);
-                          if (isPrefSendBootloaderCommand()) {
-                              //mBluetoothService.getVersion(); // MagicLight specific command
-                              handler.postDelayed(new Runnable() {
-                                  @Override
-                                  public void run() {
-                                      mBluetoothService.send_ml_packet(0x03, "y 0 0");
-                                  }
-                              }, 500);
-                              handler.postDelayed(new Runnable() {
-                                  @Override
-                                  public void run() {
-                                      mBluetoothService.sendInit();
-                                  }
-                              }, finalInitDelay + 1);
-                          } else {
-                              mLog.Log(5, "Starting Bootloader info dialog");
-                              createDialog(DIALOG_START_BOOTLOADER_INFO);
-                          }
+
                       }
                 });
-                fileReadDialog.showDialog();
+                fileReadDialog.showDialog();*/
+                mCommands.setAuto_read_out(true);
+                if (isPrefSendBootloaderCommand()) {
+                    //mBluetoothService.getVersion(); // MagicLight specific command
+                    handler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            mBluetoothService.send_ml_packet(0x03, "y 0 0");
+                        }
+                    }, 500);
+                    handler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            mBluetoothService.sendInit();
+                        }
+                    }, finalInitDelay + 1);
+                } else {
+                    mLog.Log(5, "Starting Bootloader info dialog");
+                    createDialog(DIALOG_START_BOOTLOADER_INFO);
+                }
             }
         });
 
@@ -466,12 +470,8 @@ public class BluetoothUpdaterFragment extends Fragment {
                                 }
                             }, finalInitDelay + 1);
                         } else {
-                            handler.postDelayed(new Runnable() {
-                                @Override
-                                public void run() {
-                                    mBluetoothService.sendInit();
-                                }
-                            }, 500);
+                            mLog.Log(5, "Starting Bootloader info dialog");
+                            createDialog(DIALOG_START_BOOTLOADER_INFO);
                         }
                     }
                 });
@@ -648,12 +648,21 @@ public class BluetoothUpdaterFragment extends Fragment {
                     break;
                 case Constants.MESSAGE_GID_COMPLETE:
                     byte[] gidBuf = (byte[]) msg.obj;
-                    for (byte aGidBuf : gidBuf) {
-                        String gid = String.format("Product ID: 0x04%02x", aGidBuf);
-                        if (!mCommands.isGid_complete())
-                            LogTextView(2, gid);
-                        mLog.Log(2, gid);
+                    String gid;
+                    String name;
+                    String pName;
+                    if (gidBuf.length == 1) {
+                        gid = String.format("Product ID: 0x04%02x", gidBuf[0]);
+                        pName = mDevices.getDeviceName(gidBuf[0] + 0x0400);
+                    } else {
+                        gid = String.format("Product ID: 0x%02x%02x", gidBuf[0], gidBuf[1]);
+                        pName = mDevices.getDeviceName(gidBuf[0] + gidBuf[1]);
                     }
+                    name = String.format("Product Name: %s", pName);
+                    LogTextView(2, gid);
+                    LogTextView(2, name);
+                    mLog.Log(2, gid);
+                    mLog.Log(2, name);
                     mCommands.setGid_complete(true);
                     if (!mCommands.isAuto_read_out() && mCommands.isAuto_write_to()) {
                         if (isPrefEraseAll()) {
@@ -766,6 +775,7 @@ public class BluetoothUpdaterFragment extends Fragment {
                             mBluetoothService.sendGoCmd();
                     break;
                 case Constants.MESSAGE_GO_COMPLETE:
+                    mLog.Log(2, "GO Command complete! Reset done!");
                     LogTextView(2, "GO Command complete! Reset done!");
                     mCommands.resetStates();
                     break;
@@ -776,6 +786,8 @@ public class BluetoothUpdaterFragment extends Fragment {
                         Toast.makeText(activity, "Connected to "
                                 + mConnectedDeviceName, Toast.LENGTH_SHORT).show();
                     }
+                    mLog.Log(2, "Connected to " + mConnectedDeviceName);
+                    LogTextView(2, "Connected to " + mConnectedDeviceName);
                     break;
                 case Constants.MESSAGE_TOAST:
                     if (null != activity) {
@@ -789,7 +801,7 @@ public class BluetoothUpdaterFragment extends Fragment {
 
 
     public void LogTextView(int i, String message) {
-        if (i >= getPrefVerbose())
+        if (i <= getPrefVerbose())
             mLogTextView.append("["+String.valueOf(i)+"] "+message+"\n");
     }
 

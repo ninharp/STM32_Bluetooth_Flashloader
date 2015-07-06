@@ -40,6 +40,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
 
+import de.sauernetworks.stm_bootloader.Bootloader;
 import de.sauernetworks.stm_bootloader.Commands;
 import de.sauernetworks.stm_bootloader.Protocol;
 import de.sauernetworks.tools.Logger;
@@ -78,6 +79,7 @@ public class BluetoothService {
     private int mState;
     private Logger mLog;
     private String firmware_filename;
+    private Bootloader mBootloader;
 
     /**
      * Constructor. Prepares a new BluetoothChat session.
@@ -541,12 +543,15 @@ public class BluetoothService {
     public boolean writeToFile(byte[] array, boolean overwrite) {
         String path = Environment.getExternalStorageDirectory() + "//STM32//";
         String filepath;
+        filepath = path + "backup" + Constants.FIRMWARE_EXTENSION; // Add date!?
+        /* MagicLight specific
         if (mCommands.getVer_major() > 0) {
             filepath = path + String.format("%s_%d_%d_build%d",  Constants.FIRMWARE_FILENAME, mCommands.getVer_major(), mCommands.getVer_minor(), mCommands.getVer_build()) + Constants.FIRMWARE_EXTENSION;
         } else {
             filepath = path + "backup" + Constants.FIRMWARE_EXTENSION; // Add date!?
         }
-        //LogTextView.d(TAG, path);
+        */
+        //LogTextView.d(TAG, path); // TODO: Handler message for filename?
         FileOutputStream stream;
         try {
             stream = new FileOutputStream(filepath, overwrite);
@@ -581,11 +586,10 @@ public class BluetoothService {
         private final OutputStream mmOutStream;
 
         public ConnectedThread(BluetoothSocket socket, String socketType) {
-            mLog.Log("create ConnectedThread: " + socketType);
+            mLog.Log(9, "create ConnectedThread: " + socketType);
             mmSocket = socket;
             InputStream tmpIn = null;
             OutputStream tmpOut = null;
-
             // Get the BluetoothSocket input and output streams
             try {
                 tmpIn = socket.getInputStream();
@@ -596,6 +600,7 @@ public class BluetoothService {
 
             mmInStream = tmpIn;
             mmOutStream = tmpOut;
+            mBootloader = new Bootloader(mContext, mmInStream, mmOutStream, mLog);
         }
 
         public int readTimeout(byte[] b, int timeoutMillis) throws IOException {
@@ -612,7 +617,7 @@ public class BluetoothService {
         }
 
         public void run() {
-            Log.i(TAG, "BEGIN mConnectedThread");
+            mLog.Log(9, "BEGIN mConnectedThread");
             byte[] buffer = new byte[1];
             int numRead = 0;
             //byte[] line = new byte[1024];
@@ -623,171 +628,63 @@ public class BluetoothService {
                 try {
                     if (mCommands.isInit_in_progress() && !mCommands.isRunning()) {
                         mCommands.setRunning(true);
-                        mLog.Log("INIT in Progress!");
-                        mmInStream.skip(mmInStream.available());
-                        sendByte(Protocol.STM32_INIT);
-                        numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
-                        switch (buffer[0]) {
-                            case Protocol.STM32_ACK:
-                                mLog.Log("INIT: ACK Received!");
-                                mCommands.setInit_in_progress(false);
-                                mCommands.setInit_complete(true);
-                                mHandler.obtainMessage(Constants.MESSAGE_INIT_COMPLETE).sendToTarget();
-                                break;
-                            case Protocol.STM32_NACK:
-                                mLog.Log("INIT: NACK Received!");
-                                mCommands.setInit_in_progress(false);
-                                break;
-                            default:
-                                mLog.Log("INIT: No valid byte received! (" + String.format("0x%02x", buffer[0]) + ")");
-                                mCommands.setInit_in_progress(false);
-                                break;
+                        if (mBootloader.doInit()) {
+                            mCommands.setInit_in_progress(false);
+                            mCommands.setInit_complete(true);
+                            mHandler.obtainMessage(Constants.MESSAGE_INIT_COMPLETE).sendToTarget();
+                        } else {
+                            mCommands.setInit_in_progress(false);
+                            mHandler.obtainMessage(Constants.MESSAGE_INIT_FAILED).sendToTarget();
                         }
                         mCommands.setRunning(false);
-
                     }
 
                     if (mCommands.isGet_in_progress() && !mCommands.isRunning()) {
                         mCommands.setRunning(true);
-                        mLog.Log("GET Command in Progress!");
-                        sendByte(Protocol.STM32_GET_COMMAND);
-                        sendByte((byte) (~Protocol.STM32_GET_COMMAND));
-                        numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
-                        switch (buffer[0]) {
-                            case Protocol.STM32_ACK:
-                                mLog.Log("GET: ACK Received!");
-                                numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
-                                byte cmd_count = buffer[0];
-                                String temp = String.format("GET: %d Bytes Follow", cmd_count);
-                                mLog.Log(temp);
-                                numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
-                                byte bootloader_version = buffer[0];
-                                byte[] get_buffer = new byte[cmd_count];
-                                for (int i = 0; i < cmd_count; i++) {
-                                    numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
-                                    get_buffer[i] = buffer[0];
-                                    //temp = String.format("GET CMD: 0x%02x - %s", buffer[0], commands.getCommandName(buffer[0]));
-                                    //LogTextView.d(TAG, temp);
-                                }
-                                numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
-                                if (buffer[0] == Protocol.STM32_ACK) {
-                                    mHandler.obtainMessage(Constants.MESSAGE_BL_VERSION, 1, -1, bootloader_version).sendToTarget();
-                                    mHandler.obtainMessage(Constants.MESSAGE_GET_COMPLETE, cmd_count, -1, get_buffer).sendToTarget();
-                                    mCommands.setGet_in_progress(false);
-                                    mLog.Log("GET: Command success!");
-                                } else {
-                                    mCommands.setGet_in_progress(false);
-                                    mLog.Log("GET: Command failed!");
-                                }
-                                break;
-                            case Protocol.STM32_NACK:
-                                mLog.Log("GET: NACK Received!");
-                                mCommands.setGet_in_progress(false);
-                                break;
-                            default:
-                                mLog.Log("GET: No valid byte received! (" + String.format("0x%02x", buffer[0]) + ")");
-                                mCommands.setGet_in_progress(false);
-                                break;
+                        if (mBootloader.doGetCommand()) {
+                            mBootloader.getBootloaderVersion();
+                            mHandler.obtainMessage(Constants.MESSAGE_BL_VERSION, 1, -1, mBootloader.getBootloaderVersion()).sendToTarget();
+                            mHandler.obtainMessage(Constants.MESSAGE_GET_COMPLETE, mBootloader.getBootloaderCommandCount(), -1, mBootloader.getBootloaderCommands()).sendToTarget();
+                            mCommands.setGet_in_progress(false);
+                        } else {
+                            mCommands.setGet_in_progress(false);
                         }
                         mCommands.setRunning(false);
                     }
 
                     if (mCommands.isGvrp_in_progress() && !mCommands.isRunning()) {
                         mCommands.setRunning(true);
-                        mLog.Log("GVRP Command in Progress!");
-                        if (mCommands.isGet_complete() && mCommands.isActiveCommand(Protocol.STM32_GVRP_COMMAND)) {
-                            sendByte(Protocol.STM32_GVRP_COMMAND);
-                            sendByte((byte) (~Protocol.STM32_GVRP_COMMAND));
-                            numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
-                            switch (buffer[0]) {
-                                case Protocol.STM32_ACK:
-                                    for (int i = 0; i < 3; i++) {
-                                        numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
-                                        String temp = String.format("GVRP: 0x%02x", buffer[0]);
-                                        mLog.Log(temp);
-                                    }
-                                    mmInStream.read(buffer);
-                                    if (buffer[0] == Protocol.STM32_ACK) {
-                                        mCommands.setGvrp_in_progress(false);
-                                        mCommands.setGvrp_complete(true);
-                                        mLog.Log("GVRP: Command success!");
-                                    } else {
-                                        mCommands.setGvrp_in_progress(false);
-                                        mLog.Log("GVRP: Command failed!");
-                                    }
-                                    break;
-                                case Protocol.STM32_NACK:
-                                    mLog.Log("GVRP: NACK Received!");
-                                    mCommands.setGvrp_in_progress(false);
-                                    break;
-                                default:
-                                    mLog.Log("GVRP: No valid byte received! (" + String.format("0x%02x", buffer[0]) + ")");
-                                    mCommands.setGvrp_in_progress(false);
-                                    break;
-                            }
+                        if (mBootloader.doGVRPCommand()) {
+                            mCommands.setGvrp_in_progress(false);
+                            mCommands.setGvrp_complete(true);
                         } else {
                             mCommands.setGvrp_in_progress(false);
-                            if (!mCommands.isGet_complete())
-                                mLog.Log("GVRP: Error! GET Command not completed!");
-                            else
-                                mLog.Log("GVRP: Error! GVRP Command not in instruction set!");
                         }
                         mCommands.setRunning(false);
                     }
 
                     if (mCommands.isGid_in_progress() && !mCommands.isRunning()) {
                         mCommands.setRunning(true);
-                        mLog.Log("GID Command in Progress!");
-                        if (mCommands.isGet_complete() && mCommands.isActiveCommand(Protocol.STM32_GET_ID_COMMAND)) {
-                            sendByte(Protocol.STM32_GET_ID_COMMAND);
-                            sendByte((byte) (~Protocol.STM32_GET_ID_COMMAND));
-                            numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
-                            switch (buffer[0]) {
-                                case Protocol.STM32_ACK:
-                                    numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
-                                    byte gid_count = buffer[0];
-                                    String temp = String.format("GID: %d Bytes Follow", gid_count);
-                                    mLog.Log(temp);
-                                    numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);  // TODO check expected gid count bytes
-                                    byte[] gid_buffer = new byte[gid_count];
-                                    for (int i = 0; i < gid_count; i++) {
-                                        numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
-                                        gid_buffer[i] = buffer[0];
-                                        String gid = String.format("GID: 0x%02x", gid_buffer[i]);
-                                        mLog.Log(gid);
-                                    }
-                                    numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
-                                    if (buffer[0] == Protocol.STM32_ACK) {
-                                        mHandler.obtainMessage(Constants.MESSAGE_GID_COMPLETE, gid_count, -1, gid_buffer).sendToTarget();
-                                        mCommands.setGid_in_progress(false);
-                                        mLog.Log("GID: Command success!");
-                                    } else {
-                                        mCommands.setGid_in_progress(false);
-                                        mLog.Log("GID: Command failed!");
-                                    }
-                                    break;
-                                case Protocol.STM32_NACK:
-                                    mLog.Log("GID: NACK Received!");
-                                    mCommands.setGid_in_progress(false);
-                                    break;
-                                default:
-                                    mLog.Log("GID: No valid byte received! (" + String.format("0x%02x", buffer[0]) + ")");
-                                    mCommands.setGid_in_progress(false);
-                                    break;
-                            }
+                        if (mBootloader.doGIDCommand()) {
+                            mHandler.obtainMessage(Constants.MESSAGE_GID_COMPLETE, mBootloader.getBootloaderProductId().length, -1, mBootloader.getBootloaderProductId()).sendToTarget();
+                            mCommands.setGid_in_progress(false);
                         } else {
                             mCommands.setGid_in_progress(false);
-                            if (!mCommands.isGet_complete() && !mCommands.isRunning())
-                                mLog.Log("GID: Error! GET Command not completed!");
-                            else
-                                mLog.Log("GID: Error! GID Command not in instruction set!");
                         }
                         mCommands.setRunning(false);
                     }
 
                     if (mCommands.isGo_in_progress() && !mCommands.isRunning()) {
                         mCommands.setRunning(true);
-                        mLog.Log("GO Command in Progress!");
+                        if (mBootloader.doGOCommand()) {
+                            mCommands.setGo_in_progress(false);
+                            mCommands.setGet_complete(false);
+                            mCommands.setInit_complete(false);
+                            mHandler.obtainMessage(Constants.MESSAGE_GO_COMPLETE).sendToTarget();
+                        } else {
+                            mCommands.setGo_in_progress(false);
+                        }
+                        /*mLog.Log("GO Command in Progress!");
                         if (mCommands.isGet_complete() && mCommands.isActiveCommand(Protocol.STM32_GET_ID_COMMAND)) {
                             sendByte(Protocol.STM32_GO_COMMAND);
                             sendByte((byte) (~Protocol.STM32_GO_COMMAND));
@@ -832,7 +729,7 @@ public class BluetoothService {
                                 mLog.Log("GO: Error! GET Command not completed!");
                             else
                                 mLog.Log("GO: Error! GO Command not in instruction set!");
-                        }
+                        }*/
                         mCommands.setRunning(false);
                     }
 
