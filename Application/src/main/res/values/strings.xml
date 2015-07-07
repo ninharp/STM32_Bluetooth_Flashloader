@@ -97,5 +97,7 @@
     <string name="pref_resetread_summary">Perform a device reset on successful read</string>
     <string name="pref_verbose_summary">Verbosity Level to use</string>
     <string name="pref_verbose_title">Verbose Level</string>
+    <string name="toast_error_input_output">Input/Output Error on writing to device</string>
+    <string name="toast_error_command_running">Command already running!</string>
 
 </resources>

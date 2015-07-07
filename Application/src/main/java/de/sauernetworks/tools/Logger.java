@@ -35,7 +35,7 @@ public class Logger {
     Context mContext;
     boolean enabled = true;
     boolean syslog = true;
-    int verbose = 3;
+    int verbose = 9;
 
     FileOutputStream osLog;
 
@@ -69,6 +69,15 @@ public class Logger {
 
     public void Log(int verbose, String message) {
         message = String.format("[%d] %s", verbose, message);
+        if (verbose <= this.verbose) {
+            writeLog(message);
+            if (syslog)
+                Log.i(tag, message);
+        }
+    }
+
+    public void Log(int verbose, String message, Exception e) {
+        message = String.format("[%d] %s\nException: %s", verbose, message, e.getMessage());
         if (verbose <= this.verbose) {
             writeLog(message);
             if (syslog)

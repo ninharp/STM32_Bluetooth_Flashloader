@@ -30,9 +30,6 @@ import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -299,57 +296,8 @@ public class BluetoothService {
         BluetoothService.this.start();
     }
 
-    /**
-     * Sends a byte
-     *
-     * @param b A byte to send.
-     */
-    private void sendByte(byte b) {
-        // Check that we're actually connected before trying anything
-        /*if (getState() != BluetoothService.STATE_CONNECTED) {
-            Toast.makeText(this.getActivity(), R.string.not_connected, Toast.LENGTH_SHORT).show();
-            return;
-        }*/
-        // Get the message bytes and tell the BluetoothChatService to write
-        byte[] send = new byte[1];
-        send[0] = b;
-        write(send);
-    }
-
-    public void sendGetCmd() {
-        mCommands.setGet_in_progress(true);
-    }
-
-    public void sendGvrpCmd() {
-        mCommands.setGvrp_in_progress(true);
-    }
-
-    public void sendGIDCmd() {
-        mCommands.setGid_in_progress(true);
-    }
-
-    public void sendGoCmd() {
-        mCommands.setGo_in_progress(true);
-    }
-
-    public void sendEraseCmd() {
-        mCommands.setErase_in_progress(true);
-    }
-
-    public void sendInit() {
-        mCommands.setInit_in_progress(true);
-    }
-
-    public void readMemory() {
-        mCommands.setRead_in_progress(true);
-    }
-
     public void getVersion() {
         mCommands.setVersion_in_progress(true);
-    }
-
-    public void writeMemory() {
-        mCommands.setWrite_in_progress(true);
     }
 
     public void setMemoryFilename(String s) {
@@ -380,13 +328,13 @@ public class BluetoothService {
                             NAME_INSECURE, MY_UUID_INSECURE);
                 }
             } catch (IOException e) {
-                Log.e(TAG, "Socket Type: " + mSocketType + "listen() failed", e);
+                mLog.Log(Constants.DEBUG, "Socket Type: " + mSocketType + "listen() failed", e);
             }
             mmServerSocket = tmp;
         }
 
         public void run() {
-            mLog.Log("Socket Type: " + mSocketType +
+            mLog.Log(Constants.DEBUG, "Socket Type: " + mSocketType +
                     "BEGIN mAcceptThread" + this);
             setName("AcceptThread" + mSocketType);
 
@@ -399,7 +347,7 @@ public class BluetoothService {
                     // successful connection or an exception
                     socket = mmServerSocket.accept();
                 } catch (IOException e) {
-                    Log.e(TAG, "Socket Type: " + mSocketType + "accept() failed", e);
+                    mLog.Log(Constants.DEBUG, "Socket Type: " + mSocketType + "accept() failed", e);
                     break;
                 }
 
@@ -419,14 +367,14 @@ public class BluetoothService {
                                 try {
                                     socket.close();
                                 } catch (IOException e) {
-                                    Log.e(TAG, "Could not close unwanted socket", e);
+                                    mLog.Log(Constants.DEBUG, "Could not close unwanted socket", e);
                                 }
                                 break;
                         }
                     }
                 }
             }
-            Log.i(TAG, "END mAcceptThread, socket Type: " + mSocketType);
+            mLog.Log(Constants.DEBUG, "END mAcceptThread, socket Type: " + mSocketType);
 
         }
 
@@ -435,7 +383,7 @@ public class BluetoothService {
             try {
                 mmServerSocket.close();
             } catch (IOException e) {
-                Log.e(TAG, "Socket Type" + mSocketType + "close() of server failed", e);
+                mLog.Log(Constants.DEBUG, "Socket Type" + mSocketType + "close() of server failed", e);
             }
         }
     }
@@ -466,13 +414,13 @@ public class BluetoothService {
                             MY_UUID_INSECURE);
                 }
             } catch (IOException e) {
-                Log.e(TAG, "Socket Type: " + mSocketType + "create() failed", e);
+                mLog.Log(Constants.DEBUG, "Socket Type: " + mSocketType + "create() failed", e);
             }
             mmSocket = tmp;
         }
 
         public void run() {
-            Log.i(TAG, "BEGIN mConnectThread SocketType:" + mSocketType);
+            mLog.Log(Constants.DEBUG, "BEGIN mConnectThread SocketType:" + mSocketType);
             setName("ConnectThread" + mSocketType);
 
             // Always cancel discovery because it will slow down a connection
@@ -488,7 +436,7 @@ public class BluetoothService {
                 try {
                     mmSocket.close();
                 } catch (IOException e2) {
-                    Log.e(TAG, "unable to close() " + mSocketType +
+                    mLog.Log(Constants.DEBUG, "unable to close() " + mSocketType +
                             " socket during connection failure", e2);
                 }
                 connectionFailed();
@@ -508,7 +456,7 @@ public class BluetoothService {
             try {
                 mmSocket.close();
             } catch (IOException e) {
-                Log.e(TAG, "close() of connect " + mSocketType + " socket failed", e);
+                mLog.Log(Constants.DEBUG, "close() of connect " + mSocketType + " socket failed", e);
             }
         }
     }
@@ -576,6 +524,10 @@ public class BluetoothService {
 
     }
 
+    protected Bootloader getBootloader() {
+        return mBootloader;
+    }
+
     /**
      * This thread runs during a connection with a remote device.
      * It handles all incoming and outgoing transmissions.
@@ -600,7 +552,7 @@ public class BluetoothService {
 
             mmInStream = tmpIn;
             mmOutStream = tmpOut;
-            mBootloader = new Bootloader(mContext, mmInStream, mmOutStream, mLog);
+            mBootloader = new Bootloader(mContext, mmInStream, mmOutStream, mLog, mHandler);
         }
 
         public int readTimeout(byte[] b, int timeoutMillis) throws IOException {
@@ -626,113 +578,6 @@ public class BluetoothService {
             // Keep listening to the InputStream while connected
             while (true) {
                 try {
-                    if (mCommands.isInit_in_progress() && !mCommands.isRunning()) {
-                        mCommands.setRunning(true);
-                        if (mBootloader.doInit()) {
-                            mCommands.setInit_in_progress(false);
-                            mCommands.setInit_complete(true);
-                            mHandler.obtainMessage(Constants.MESSAGE_INIT_COMPLETE).sendToTarget();
-                        } else {
-                            mCommands.setInit_in_progress(false);
-                            mHandler.obtainMessage(Constants.MESSAGE_INIT_FAILED).sendToTarget();
-                        }
-                        mCommands.setRunning(false);
-                    }
-
-                    if (mCommands.isGet_in_progress() && !mCommands.isRunning()) {
-                        mCommands.setRunning(true);
-                        if (mBootloader.doGetCommand()) {
-                            mBootloader.getBootloaderVersion();
-                            mHandler.obtainMessage(Constants.MESSAGE_BL_VERSION, 1, -1, mBootloader.getBootloaderVersion()).sendToTarget();
-                            mHandler.obtainMessage(Constants.MESSAGE_GET_COMPLETE, mBootloader.getBootloaderCommandCount(), -1, mBootloader.getBootloaderCommands()).sendToTarget();
-                            mCommands.setGet_in_progress(false);
-                        } else {
-                            mCommands.setGet_in_progress(false);
-                        }
-                        mCommands.setRunning(false);
-                    }
-
-                    if (mCommands.isGvrp_in_progress() && !mCommands.isRunning()) {
-                        mCommands.setRunning(true);
-                        if (mBootloader.doGVRPCommand()) {
-                            mCommands.setGvrp_in_progress(false);
-                            mCommands.setGvrp_complete(true);
-                        } else {
-                            mCommands.setGvrp_in_progress(false);
-                        }
-                        mCommands.setRunning(false);
-                    }
-
-                    if (mCommands.isGid_in_progress() && !mCommands.isRunning()) {
-                        mCommands.setRunning(true);
-                        if (mBootloader.doGIDCommand()) {
-                            mHandler.obtainMessage(Constants.MESSAGE_GID_COMPLETE, mBootloader.getBootloaderProductId().length, -1, mBootloader.getBootloaderProductId()).sendToTarget();
-                            mCommands.setGid_in_progress(false);
-                        } else {
-                            mCommands.setGid_in_progress(false);
-                        }
-                        mCommands.setRunning(false);
-                    }
-
-                    if (mCommands.isGo_in_progress() && !mCommands.isRunning()) {
-                        mCommands.setRunning(true);
-                        if (mBootloader.doGOCommand()) {
-                            mCommands.setGo_in_progress(false);
-                            mCommands.setGet_complete(false);
-                            mCommands.setInit_complete(false);
-                            mHandler.obtainMessage(Constants.MESSAGE_GO_COMPLETE).sendToTarget();
-                        } else {
-                            mCommands.setGo_in_progress(false);
-                        }
-                        /*mLog.Log("GO Command in Progress!");
-                        if (mCommands.isGet_complete() && mCommands.isActiveCommand(Protocol.STM32_GET_ID_COMMAND)) {
-                            sendByte(Protocol.STM32_GO_COMMAND);
-                            sendByte((byte) (~Protocol.STM32_GO_COMMAND));
-                            numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
-                            switch (buffer[0]) {
-                                case Protocol.STM32_ACK:
-                                    long address = Constants.STM32_START_ADDRESS;
-                                    byte[] buf = new byte[5];
-                                    buf[0] = (byte) (address >> 24);
-                                    buf[1] = (byte) ((address >> 16) & 0xFF);
-                                    buf[2] = (byte) ((address >> 8) & 0xFF);
-                                    buf[3] = (byte) (address & 0xFF);
-                                    buf[4] = (byte) (buf[0] ^ buf[1] ^ buf[2] ^ buf[3]);
-                                    write(buf);
-                                    numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
-                                    if (buffer[0] == Protocol.STM32_ACK) {
-                                        mLog.Log("GO: Jump command successed!");
-                                        mCommands.setGo_in_progress(false);
-                                        mCommands.setGet_complete(false);
-                                        mCommands.setInit_complete(false);
-                                        mHandler.obtainMessage(Constants.MESSAGE_GO_COMPLETE).sendToTarget();
-                                    } else if (buffer[0] == Protocol.STM32_NACK) {
-                                        mLog.Log("GO: NACK Received!");
-                                        mCommands.setGo_in_progress(false);
-                                    } else {
-                                        mLog.Log("GO: No valid byte received! (" + String.format("0x%02x", buffer[0]) + ")");
-                                        mCommands.setGo_in_progress(false);
-                                    }
-                                    break;
-                                case Protocol.STM32_NACK:
-                                    mLog.Log("GO: NACK Received!");
-                                    mCommands.setGo_in_progress(false);
-                                    break;
-                                default:
-                                    mLog.Log("GO: No valid byte received! (" + String.format("0x%02x", buffer[0]) + ")");
-                                    mCommands.setGo_in_progress(false);
-                                    break;
-                            }
-                        } else {
-                            mCommands.setGo_in_progress(false);
-                            if (!mCommands.isGet_complete())
-                                mLog.Log("GO: Error! GET Command not completed!");
-                            else
-                                mLog.Log("GO: Error! GO Command not in instruction set!");
-                        }*/
-                        mCommands.setRunning(false);
-                    }
-
                     if (mCommands.isVersion_in_progress() && !mCommands.isRunning()) {
                         mCommands.setRunning(true);
                         mLog.Log("VERSION Command in Progress!");
@@ -781,150 +626,7 @@ public class BluetoothService {
                         mCommands.setRunning(false);
                     }
 
-                    if (mCommands.isRead_in_progress() && !mCommands.isRunning()) {
-                        mCommands.setRunning(true);
-                        mLog.Log("READ: Command in Progress!");
-                        int written_pages = 0;
-                        if (mCommands.isGet_complete() && mCommands.isActiveCommand(Protocol.STM32_READ_COMMAND)) {
-                            mHandler.obtainMessage(Constants.MESSAGE_READ_MEMORY_START).sendToTarget();
-                            long address = Constants.STM32_START_ADDRESS;
-                            int emptyBytes = 0; // TODO check empty bytes
-                            for (int page = 0; page < Protocol.STM32_PAGE_COUNT; page++) {
-                                if (emptyBytes > mCommands.getSkipBytes() && !mCommands.isRead_full()) {
-                                    mLog.LogF("READ: Read "+String.valueOf(mCommands.getSkipBytes())+" bytes of 0xff. Only empty bytes follow!");
-
-                                    break;
-                                }
-                                sendByte(Protocol.STM32_READ_COMMAND);
-                                sendByte((byte) (~Protocol.STM32_READ_COMMAND));
-                                numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
-                                switch (buffer[0]) {
-                                    case Protocol.STM32_ACK:
-                                        byte[] buf = new byte[5];
-                                        buf[0] = (byte) (address >> 24);
-                                        buf[1] = (byte) ((address >> 16) & 0xFF);
-                                        buf[2] = (byte) ((address >> 8) & 0xFF);
-                                        buf[3] = (byte) (address & 0xFF);
-                                        buf[4] = (byte) (buf[0] ^ buf[1] ^ buf[2] ^ buf[3]);
-                                        write(buf);
-                                        numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
-                                        address += Protocol.STM32_BYTE_COUNT;
-                                        switch (buffer[0]) {
-                                            case Protocol.STM32_ACK:
-                                                sendByte((byte) (Protocol.STM32_BYTE_COUNT - 1));
-                                                sendByte((byte) ~(Protocol.STM32_BYTE_COUNT - 1));
-                                                numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
-                                                switch (buffer[0]) {
-                                                    case Protocol.STM32_ACK:
-                                                        int[] dataBuf = new int[2];
-                                                        dataBuf[0] = page;
-                                                        byte[] data = new byte[Protocol.STM32_BYTE_COUNT];
-                                                        for (int i = 0; i < data.length; i++) {
-                                                            numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
-                                                            if (numRead > 0) {
-                                                                data[i] = buffer[0];
-                                                                dataBuf[1] = i;
-                                                                mHandler.obtainMessage(Constants.MESSAGE_READ_MEMORY_BYTE, dataBuf.length, -1, dataBuf).sendToTarget();
-                                                                //mLog.LogF(String.format("READ: Offset %d Read Byte 0x%02x", ((page * Protocol.STM32_BYTE_COUNT) + i), buffer[0]));
-                                                                //LogTextView.d(TAG, "Read Data Byte "+String.valueOf(dataBuf[1])+" on page "+String.valueOf(dataBuf[0]));
-                                                                if (buffer[0] == (byte)0xFF) {
-                                                                    //mLog.LogF("READ: Empty Byte found on read!");
-                                                                    emptyBytes++;
-                                                                } else
-                                                                    emptyBytes = 0;
-                                                            }
-                                                        }
-                                                        if (page == 0)
-                                                            writeToFile(data, false);
-                                                        else
-                                                            writeToFile(data, true); // TODO file write error exception
-                                                        //mLog.LogF("READ: Read Page "+String.valueOf(page));
-                                                        written_pages++;
-                                                        break;
-                                                }
-                                                break;
-                                            default:
-                                                mLog.Log("READ: Address Error on Read PAGE " + String.valueOf(page) + " [" + String.format("0x%02x", buffer[0]) + "]");
-                                                mHandler.obtainMessage(Constants.MESSAGE_READ_MEMORY_FAILED).sendToTarget();
-                                                mCommands.setRead_in_progress(false);
-                                                mCommands.setGo_in_progress(true);
-                                                break;
-                                        }
-                                        break;
-                                    default:
-                                        mLog.Log("READ: Command Error on Read PAGE " + String.valueOf(page) + " [" + String.format("0x%02x", buffer[0]) + "]");
-                                        mHandler.obtainMessage(Constants.MESSAGE_READ_MEMORY_FAILED).sendToTarget();
-                                        mCommands.setRead_in_progress(false);
-                                        mCommands.setGo_in_progress(true);
-                                        break;
-                                }
-                            }
-                            mLog.LogF("READ: Read "+String.valueOf(written_pages)+" Pages");
-                            mHandler.obtainMessage(Constants.MESSAGE_READ_MEMORY_COMPLETE, 1, -1, written_pages).sendToTarget();
-                            mLog.Log("READ: Command success!");
-                            mCommands.setRead_in_progress(false);
-                        } else {
-                            mCommands.setRead_in_progress(false);
-                            if (!mCommands.isGet_complete())
-                                mLog.Log("READ: Error! GET Command not completed!");
-                            else
-                                mLog.Log("READ: Error! Read Memory Command not in instruction set! (Maybe readout protected)");
-                        }
-                        mCommands.setRunning(false);
-                    }
-
-                    if (mCommands.isErase_in_progress() && !mCommands.isRunning()) {
-                        mCommands.setRunning(true);
-                        mLog.Log("EER Command in Progress!");
-                        if (mCommands.isGet_complete() && mCommands.isActiveCommand(Protocol.STM32_EER_COMMAND)) {
-                            sendByte(Protocol.STM32_EER_COMMAND);
-                            sendByte((byte) (~Protocol.STM32_EER_COMMAND));
-                            readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
-                            switch (buffer[0]) {
-                                case Protocol.STM32_ACK:
-                                    byte[] eerBuf = new byte[3];
-                                    eerBuf[0] = (byte) 0xFF;
-                                    eerBuf[1] = (byte) 0xFF;
-                                    eerBuf[2] = (byte) (eerBuf[0] ^ eerBuf[1]);
-                                    mHandler.obtainMessage(Constants.MESSAGE_ERASE_MEMORY_START).sendToTarget();
-                                    write(eerBuf);
-                                    long maxTimeMillis = System.currentTimeMillis() + Protocol.STM32_EER_TIMEOUT;
-                                    while (System.currentTimeMillis() < maxTimeMillis && mmInStream.read(buffer) <= 0);
-                                    if (buffer[0] == Protocol.STM32_ACK) {
-                                        mCommands.setErase_in_progress(false);
-                                        mCommands.setErase_complete(true);
-                                        mHandler.obtainMessage(Constants.MESSAGE_ERASE_MEMORY_COMPLETE).sendToTarget();
-                                        mLog.Log("EER: Mass Erase of Memory completed!");
-                                    } else if (buffer[0] == Protocol.STM32_NACK) {
-                                        mHandler.obtainMessage(Constants.MESSAGE_ERASE_MEMORY_FAILED).sendToTarget();
-                                        mLog.Log("EER: Mass Erase of Memory failed!");
-                                        mCommands.setErase_in_progress(false);
-                                    } else {
-                                        mLog.Log("EER: No valid byte received! (" + String.format("0x%02x", buffer[0]) + ")");
-                                        mCommands.setErase_in_progress(false);
-                                    }
-                                    break;
-                                case Protocol.STM32_NACK:
-                                    mHandler.obtainMessage(Constants.MESSAGE_ERASE_MEMORY_FAILED).sendToTarget();
-                                    mLog.Log("EER: NACK Received!");
-                                    mCommands.setErase_in_progress(false);
-                                    break;
-                                default:
-                                    mHandler.obtainMessage(Constants.MESSAGE_ERASE_MEMORY_FAILED).sendToTarget();
-                                    mLog.Log("EER: No valid byte received! (" + String.format("0x%02x", buffer[0]) + ")");
-                                    mCommands.setErase_in_progress(false);
-                                    break;
-                            }
-                        } else {
-                            mCommands.setErase_in_progress(false);
-                            if (!mCommands.isGet_complete())
-                                mLog.Log("EER: Error! GET Command not completed!");
-                            else
-                                mLog.Log("EER: Error! Extended Erase Command not in instruction set!");
-                        }
-                        mCommands.setRunning(false);
-                    }
-
+                    /*
                     if (mCommands.isWrite_in_progress() && !mCommands.isRunning()) {
                         mCommands.setRunning(true);
                         boolean error = false;
@@ -1030,20 +732,6 @@ public class BluetoothService {
                                             }
                                             mHandler.obtainMessage(Constants.MESSAGE_WRITE_MEMORY_BYTE, dataBuf.length, -1, dataBuf).sendToTarget();
                                             firmwareOffset += firmwareData.length;
-                                        /*
-                                        if (countData == firmwareData.length) {
-
-                                        } else {
-                                            error = true;
-                                            LogTextView.d(TAG, "WRITE: Firmware File Error on Write PAGE "+String.valueOf(page)+" ["+String.format("0x%02x", buffer[0])+"]");
-                                            mHandler.obtainMessage(Constants.MESSAGE_WRITE_MEMORY_FAILED).sendToTarget();
-                                            mCommands.setWrite_in_progress(false);
-                                            //mCommands.setGo_in_progress(true);
-                                            if (firmwareBuf != null)
-                                                firmwareBuf.close();
-                                            break;
-                                        }
-                                        */
                                         } else {
                                             error = true;
                                             mLog.Log("WRITE: Address Error on Write PAGE " + String.valueOf(page) + " [" + String.format("0x%02x", buffer[0]) + "]");
@@ -1088,6 +776,7 @@ public class BluetoothService {
                         }
                         mCommands.setRunning(false);
                     }
+                    */
 
                 } catch (IOException e) {
                     Log.e(TAG, "disconnected", e);
