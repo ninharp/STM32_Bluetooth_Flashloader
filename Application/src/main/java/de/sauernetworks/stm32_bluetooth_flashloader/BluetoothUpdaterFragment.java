@@ -55,7 +55,6 @@ import java.io.IOException;
 
 import de.sauernetworks.stm_bootloader.Bootloader;
 import de.sauernetworks.stm_bootloader.Commands;
-import de.sauernetworks.stm_bootloader.Devices;
 import de.sauernetworks.stm_bootloader.OnBootloaderEventListener;
 import de.sauernetworks.tools.FileDialog;
 import de.sauernetworks.tools.Logger;
@@ -114,7 +113,6 @@ public class BluetoothUpdaterFragment extends Fragment {
     private File mPath;
     FileDialog fileWriteDialog;
     FileDialog fileReadDialog;
-    private Devices mDevices;
     /* Preferences */
     private static String prefShowDeviceMatch;
     private String prefSkipBytes;
@@ -130,10 +128,14 @@ public class BluetoothUpdaterFragment extends Fragment {
     private static String prefBootloaderCommand;
     private String prefBootloaderInitDelay;
     private int prefVerbose = 2;
+    private static char[] hexArray = "0123456789ABCDEF".toCharArray();
 
     long timerTemp = 0;
     long timeReadMemory = 0;
     long timeWriteMemory = 0;
+    long timerEraseMemory = 0;
+    private boolean writeMemoryRunning;
+    private boolean readMemoryRunning;
 
 
     @Override
@@ -150,7 +152,6 @@ public class BluetoothUpdaterFragment extends Fragment {
             Toast.makeText(activity, "Bluetooth is not available", Toast.LENGTH_LONG).show();
             activity.finish();
         }
-        mDevices = new Devices();
     }
 
     @Override
@@ -191,6 +192,14 @@ public class BluetoothUpdaterFragment extends Fragment {
         }
     }
 
+    public String byteToHex(byte b) {
+        char[] hexChars = new char[2];
+        int v = b & 0xFF;
+        hexChars[0] = hexArray[v >>> 4];
+        hexChars[1] = hexArray[v & 0x0F];
+        return new String(hexChars);
+    }
+
     public void setCommands(Commands cmds) {
         this.mCommands = cmds;
     }
@@ -202,14 +211,16 @@ public class BluetoothUpdaterFragment extends Fragment {
                 mProgressDialog.setMessage("Connecting..");
                 mProgressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
                 mProgressDialog.setCancelable(false);
-                mProgressDialog.show();
+                if (!mProgressDialog.isShowing())
+                    mProgressDialog.show();
                 break;
             case DIALOG_ERASE_PROGRESS:
                 mProgressDialog = new ProgressDialog(this.getActivity());
                 mProgressDialog.setMessage("Erasing Memory..");
                 mProgressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
                 mProgressDialog.setCancelable(false);
-                mProgressDialog.show();
+                if (!mProgressDialog.isShowing())
+                    mProgressDialog.show();
                 break;
             case DIALOG_DOWNLOAD_PROGRESS:
                 mProgressDialog = new ProgressDialog(this.getActivity());
@@ -218,7 +229,8 @@ public class BluetoothUpdaterFragment extends Fragment {
                 mProgressDialog.setProgressNumberFormat("%1d of %2d Pages read");
                 mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
                 mProgressDialog.setCancelable(false);
-                mProgressDialog.show();
+                if (!mProgressDialog.isShowing())
+                    mProgressDialog.show();
                 break;
             case DIALOG_UPLOAD_PROGRESS:
                 mProgressDialog = new ProgressDialog(this.getActivity());
@@ -233,7 +245,8 @@ public class BluetoothUpdaterFragment extends Fragment {
                 mProgressDialog.setProgressNumberFormat("%1d of %2d Pages written");
                 mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
                 mProgressDialog.setCancelable(false);
-                mProgressDialog.show();
+                if (!mProgressDialog.isShowing())
+                    mProgressDialog.show();
                 break;
             case DIALOG_START_BOOTLOADER_INFO:
                 AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
@@ -355,7 +368,6 @@ public class BluetoothUpdaterFragment extends Fragment {
                         Toast.makeText(getActivity(), R.string.toast_error_input_output, Toast.LENGTH_SHORT).show();
                         e.printStackTrace();
                     }
-                    mCommands.setRunning(false);
                 } else {
                     Toast.makeText(getActivity(), R.string.toast_error_command_running, Toast.LENGTH_SHORT).show();
                 }
@@ -373,11 +385,12 @@ public class BluetoothUpdaterFragment extends Fragment {
                 if (!mBootloader.isCommandRunning()) {
                     try {
                         if (mBootloader.getCommands()) {
-                            String temp = String.format("Bootloader Version: %02x", mBootloader.getBootloaderVersion());
+                            String[] ver = byteToHex(mBootloader.getBootloaderVersion()).split("(?!^)");
+                            String temp = String.format("Bootloader Version: %s.%s (%02x)", ver[0], ver[1], mBootloader.getBootloaderVersion());
                             LogTextView(3, temp);
                             mLog.Log(temp);
                             for (byte cmd : mBootloader.getBootloaderCommands()) {
-                                String getCommand = String.format("Command: %s", mCommands.getCommandName(cmd));
+                                String getCommand = String.format("Command: (0x%02x) %s", cmd, mCommands.getCommandName(cmd));
                                 LogTextView(5, getCommand);
                                 mLog.Log(5, getCommand);
                             }
@@ -436,19 +449,16 @@ public class BluetoothUpdaterFragment extends Fragment {
                 if (!mBootloader.isCommandRunning()) {
                     try {
                         if (mBootloader.getDeviceInfo()) {
-                            byte[] gidBuf = mBootloader.getBootloaderProductId();
-                            String gid;
-                            String name;
-                            if (gidBuf.length == 1) {
-                                gid = String.format("Product ID: 0x04%02x", gidBuf[0]);
-                            } else
-                                gid = String.format("Product ID: 0x%02x%02x", gidBuf[0], gidBuf[1]);
-
-                            name = String.format("Product Name: %s", mBootloader.getBootloaderProductName());
+                            int gidBuf = mBootloader.getBootloaderProductId();
+                            String gid = String.format("Product ID: 0x%04x", gidBuf);
+                            String name = String.format("Product Name: %s", mBootloader.getBootloaderProductName());
+                            String flash_size = new String("Flash Size: "+String.valueOf(mBootloader.getDevices().getFlashSize(mBootloader.getBootloaderProductId()))+ " kb");
                             LogTextView(2, gid);
                             LogTextView(2, name);
+                            LogTextView(2, flash_size);
                             mLog.Log(2, gid);
                             mLog.Log(2, name);
+                            mLog.Log(2, flash_size);
                         } else {
                             Toast.makeText(getActivity(), "Failed to get device information from Bootloader!", Toast.LENGTH_SHORT).show();
                             mLog.Log(Constants.ERROR, "Failed to get device information from Bootloader!");
@@ -498,7 +508,7 @@ public class BluetoothUpdaterFragment extends Fragment {
                     return;
                 }
 
-                if (!mBootloader.isCommandRunning()) {
+                if (!mBootloader.isCommandRunning() && !readMemoryRunning) {
                     new ReadMemoryOperation().execute();
                 }
             }
@@ -531,9 +541,14 @@ public class BluetoothUpdaterFragment extends Fragment {
                 if (!mBootloader.isCommandRunning()) {
                     fileWriteDialog.addFileListener(new FileDialog.FileSelectedListener() {
                         public void fileSelected(File file) {
-                            mLog.Log(7, "selected file " + file.toString());
-                            firmware_upload_size = getFileSize(file.toString());
-                            new WriteMemoryOperation().execute(file.toString());
+                            if (!writeMemoryRunning) {
+                                mLog.Log(7, "selected file " + file.toString());
+                                firmware_upload_size = getFileSize(file.toString());
+                                new WriteMemoryOperation().execute(file.toString());
+                            }
+                            else {
+                                mLog.Log(1, "Writing already in progress!");
+                            }
                         }
                     });
                     fileWriteDialog.showDialog();
@@ -739,26 +754,28 @@ public class BluetoothUpdaterFragment extends Fragment {
             closeDialog();
             if (readPages > 0) {
                 timeReadMemory = System.currentTimeMillis() - timerTemp;
-                timeReadMemory = timeReadMemory / 1000;
+                float timeReadMemorySeconds = timeReadMemory / 1000f;
                 int b = (readPages * mBootloader.getReadBlockSize());
                 if (b > 1024) {
                     int kb = b / 1024;
-                    mLog.Log(1, "Download memory complete in " + String.valueOf(timeReadMemory) + " seconds! (" + kb + "kb)");
-                    Toast.makeText(getActivity(), "Download memory complete in " + String.valueOf(timeReadMemory) + " seconds! (" + kb + "kb)", Toast.LENGTH_SHORT).show();
-                    LogTextView(1, "Download memory complete in " + String.valueOf(timeReadMemory) + " seconds! (" + kb + "kb)");
+                    mLog.Log(1, "Download memory complete in " + String.format("%.2f", timeReadMemorySeconds) + " seconds! (" + kb + "kb)");
+                    Toast.makeText(getActivity(), "Download memory complete in " + String.format("%.2f", timeReadMemorySeconds) + " seconds! (" + kb + "kb)", Toast.LENGTH_SHORT).show();
+                    LogTextView(1, "Download memory complete in " + String.format("%.2f", timeReadMemorySeconds) + " seconds! (" + kb + "kb)");
                 } else {
-                    mLog.Log(1, "Download memory complete in " + String.valueOf(timeReadMemory) + " seconds! (" + b + "bytes)");
-                    Toast.makeText(getActivity(), "Download memory complete in " + String.valueOf(timeReadMemory) + " seconds! (" + b + "bytes)", Toast.LENGTH_SHORT).show();
-                    LogTextView(1, "Download memory complete in " + String.valueOf(timeReadMemory) + " seconds! (" + b + "bytes)");
+                    mLog.Log(1, "Download memory complete in " + String.format("%.2f", timeReadMemorySeconds) + " seconds! (" + b + "bytes)");
+                    Toast.makeText(getActivity(), "Download memory complete in " + String.format("%.2f", timeReadMemorySeconds) + " seconds! (" + b + "bytes)", Toast.LENGTH_SHORT).show();
+                    LogTextView(1, "Download memory complete in " + String.format("%.2f", timeReadMemorySeconds) + " seconds! (" + b + "bytes)");
                 }
             } else {
                 Toast.makeText(getActivity(), "Failed to read memory from device!", Toast.LENGTH_SHORT).show();
                 mLog.Log(Constants.ERROR, "Failed to read memory from device!");
             }
+            readMemoryRunning = false;
         }
 
         @Override
         protected void onPreExecute() {
+            readMemoryRunning = true;
             createDialog(DIALOG_DOWNLOAD_PROGRESS);
             LogTextView(3, "Downloading memory to file.. ");
             mLog.Log(3, "Downloading memory to file.. ");
@@ -789,18 +806,24 @@ public class BluetoothUpdaterFragment extends Fragment {
         protected Integer doInBackground(String... params) {
             try {
                 mBootloader.writeMemory(params[0]);
-                mLog.Log(1, "Wrote "+String.valueOf(wrPage[0])+" Pages");
-                return 1;
+                if (wrPage[0] != 0) {
+                    mLog.Log(1, "Wrote " + String.valueOf(wrPage[0]) + " Pages");
+                    return 1;
+                } else {
+                    mLog.Log(Constants.ERROR, "Write error!");
+                    return 0;
+                }
             } catch (IOException e) {
                 closeDialog();
                 mHandler.obtainMessage(Constants.MESSAGE_IO_ERROR).sendToTarget();
                 e.printStackTrace();
+                return 0;
             }
-            return 0;
         }
 
         @Override
         protected void onPreExecute() {
+            writeMemoryRunning = true;
             timerTemp = System.currentTimeMillis();
             createDialog(DIALOG_UPLOAD_PROGRESS);
             wrPage = new long[4];
@@ -818,15 +841,15 @@ public class BluetoothUpdaterFragment extends Fragment {
         @Override
         protected void onPostExecute(Integer result) {
             timeWriteMemory = System.currentTimeMillis() - timerTemp;
-            timeWriteMemory = timeWriteMemory / 1000;
+            float timeWriteMemorySeconds = timeWriteMemory / 1000f;
             closeDialog();
             if (result == 1) {
                 String size;
                 if (firmware_upload_size > 1024) size = String.format("(%d kb)", (firmware_upload_size / 1024));
                 else size = String.format("(%d bytes)", firmware_upload_size);
-                mLog.Log(1, "Upload memory complete in " + String.valueOf(timeWriteMemory) + " seconds! (" + size + " bytes)");
-                Toast.makeText(getActivity(), "Upload memory complete in " + String.valueOf(timeWriteMemory) + " seconds! (" + size + " bytes)", Toast.LENGTH_SHORT).show();
-                LogTextView(1, "Upload memory complete in " + String.valueOf(timeWriteMemory) + " seconds! (" + size + " bytes)");
+                mLog.Log(1, "Upload memory complete in " + String.format("%.2f", timeWriteMemorySeconds) + " seconds! " + size);
+                Toast.makeText(getActivity(), "Upload memory complete in " + String.format("%.2f", timeWriteMemorySeconds) + " seconds! " + size, Toast.LENGTH_SHORT).show();
+                LogTextView(1, "Upload memory complete in " + String.format("%.2f", timeWriteMemorySeconds) + " seconds! " + size);
             } else {
                 if (wrPage == null) {
                     wrPage = new long[4];
@@ -836,19 +859,18 @@ public class BluetoothUpdaterFragment extends Fragment {
                 }
                 mLog.Log(1, "Uploading memory failed on Page " + String.valueOf(wrPage[0]) + " of " + String.valueOf(wrPage[2] / STM32_BYTE_COUNT) + " on Byte " + String.valueOf((wrPage[0] * STM32_BYTE_COUNT) + wrPage[1]));
                 LogTextView(1, "Uploading memory failed on Page " + String.valueOf(wrPage[0]) + " of " + String.valueOf(wrPage[2] / STM32_BYTE_COUNT) + " on Byte " + String.valueOf((wrPage[0] * STM32_BYTE_COUNT) + wrPage[1]));
-                closeDialog();
                 Toast.makeText(getActivity(), "Failed to upload memory", Toast.LENGTH_SHORT).show();
             }
+            writeMemoryRunning = false;
         }
 
         @Override
         protected void onProgressUpdate(Long... bufWrite) {
-            mLog.LogF("setProgress "+ String.valueOf(bufWrite[0]));
             mProgressDialog.setProgress(bufWrite[0].intValue());
             int currByte = (bufWrite[0].intValue() * STM32_BYTE_COUNT) + bufWrite[1].intValue();
-                    /*if (currByte > 1024)
-                        mProgressDialog.setMessage("Uploading memory..\n("+ String.valueOf(currByte) +"/"+String.valueOf(firmware_upload_size / 1024)+" kb)");
-                    else*/
+            /*if (currByte > 1024)
+                mProgressDialog.setMessage("Uploading memory..\n("+ String.valueOf(currByte) +"/"+String.valueOf(firmware_upload_size / 1024)+" kb)");
+            else*/
             mProgressDialog.setMessage("Uploading memory..\n("+ String.valueOf(currByte) +"/" + String.valueOf(firmware_upload_size) + " bytes)");
         }
     }
@@ -863,8 +885,10 @@ public class BluetoothUpdaterFragment extends Fragment {
         protected Integer doInBackground(Integer... params) {
             try {
                 if (mBootloader.extendedEraseMemory()) {
+                    LogTextView(4, "Extended Erase Memory completed!");
                     return 1;
                 } else {
+                    LogTextView(Constants.ERROR, "Extended Erase Memory failed!");
                     return 0;
                 }
             } catch (IOException e) {
@@ -877,8 +901,11 @@ public class BluetoothUpdaterFragment extends Fragment {
 
         @Override
         protected void onPostExecute(Integer result) {
+            timerEraseMemory = System.currentTimeMillis() - timerTemp;
+            float timeEraseMemorySeconds = timerEraseMemory / 1000f;
             if (result == 1) {
-                LogTextView(2, "Extended Erase Memory completed!");
+                LogTextView(2, "Extended Erase Memory completed in "+String.format("%.2f", timeEraseMemorySeconds)+" seconds");
+                mLog.Log(2, "Extended Erase Memory completed in "+String.format("%.2f", timeEraseMemorySeconds)+" seconds");
             } else {
                 Toast.makeText(getActivity(), "Failed to extended erase device!", Toast.LENGTH_SHORT).show();
                 mLog.Log(Constants.ERROR, "EER: Failed to extended erase device!");
@@ -888,6 +915,7 @@ public class BluetoothUpdaterFragment extends Fragment {
 
         @Override
         protected void onPreExecute() {
+            timerTemp = System.currentTimeMillis();
             LogTextView(4, "Erase Memory started!");
             mLog.Log(4, "EER: Erase Memory started!");
             createDialog(DIALOG_ERASE_PROGRESS);
@@ -898,9 +926,6 @@ public class BluetoothUpdaterFragment extends Fragment {
         }
     }
 
-    /**
-     * The Handler that gets information back from the BluetoothChatService
-     */
     private final Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
@@ -923,7 +948,7 @@ public class BluetoothUpdaterFragment extends Fragment {
                             setStatus(R.string.title_not_connected);
                             closeDialog();
                             mBootloader = null;
-                            //TODO: clearBootloaderSettings
+                            //TODO: clearBootloaderSettings for new chip f.e.
                             break;
                     }
                     break;
@@ -990,8 +1015,6 @@ public class BluetoothUpdaterFragment extends Fragment {
                 }
                 break;
             case REQUEST_CONNECT_DEVICE_INSECURE:
-
-
                 // When DeviceListActivity returns with a device to connect
                 if (resultCode == Activity.RESULT_OK) {
                     connectDevice(data, false);

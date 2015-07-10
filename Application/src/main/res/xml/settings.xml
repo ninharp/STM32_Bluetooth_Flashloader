@@ -142,7 +142,19 @@
     </PreferenceScreen>
 
     <Preference
+        android:key="prefShowSupportedDevices"
+        android:icon="@android:drawable/ic_menu_manage"
+        android:summary="List all currently supported devices"
+        android:title="Supported Devices">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="de.sauernetworks.stm32_bluetooth_flashloader"
+            android:targetClass="de.sauernetworks.stm32_bluetooth_flashloader.SupportedDevicesActivity" />
+    </Preference>
+
+    <Preference
         android:key="prefShowAbout"
+        android:icon="@android:drawable/ic_menu_info_details"
         android:summary="Shows information about this app"
         android:title="About this App">
         <intent

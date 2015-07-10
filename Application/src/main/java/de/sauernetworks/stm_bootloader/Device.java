@@ -49,10 +49,6 @@ public class Device {
         this.mem_end = mem_end;
     }
 
-    public long getMem_end() {
-        return mem_end;
-    }
-
     public int getDeviceID() {
         return deviceID;
     }
@@ -61,41 +57,43 @@ public class Device {
         return deviceName;
     }
 
-    public long getRam_start() {
+    public long getRamStart() {
         return ram_start;
     }
 
-    public long getRam_end() {
+    public long getRamEnd() {
         return ram_end;
     }
 
-    public long getFlash_start() {
+    public long getFlashStart() {
         return flash_start;
     }
 
-    public long getFlash_end() {
+    public long getFlashEnd() {
         return flash_end;
     }
 
-    public int getPages_per_sector() {
+    public int getPagesPerSector() {
         return pages_per_sector;
     }
 
-    public int getPage_size() {
+    public int getPageSize() {
         return page_size;
     }
 
-    public long getOption_start() {
+    public long getOptionStart() {
         return option_start;
     }
 
-    public long getOption_end() {
+    public long getOptionEnd() {
         return option_end;
     }
 
-    public long getMem_start() {
+    public long getMemStart() {
         return mem_start;
     }
+
+    public long getMemEnd() { return mem_end; }
 
 
 }

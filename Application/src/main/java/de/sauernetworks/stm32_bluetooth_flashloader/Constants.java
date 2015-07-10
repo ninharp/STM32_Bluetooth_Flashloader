@@ -43,9 +43,11 @@ public interface Constants {
     String DEVICE_NAME = "device_name";
     String TOAST = "toast";
 
+    String PREF_ABOUT = "prefShowAbout";
+
     String FIRMWARE_FILENAME = "backup";
     String FIRMWARE_EXTENSION = ".bin";
 
-    long STM32_START_ADDRESS = 0x08000000;
+    //long STM32_START_ADDRESS = 0x08000000;
     String STM32_NAME_PATTERN = "MagicLightV2-\\w\\w\\w\\w";
 }

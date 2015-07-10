@@ -91,7 +91,7 @@ public class Devices {
     public long getRamStart(int deviceID) {
         for (Device device : devices) {
             if (device.getDeviceID() == deviceID)
-                return device.getRam_start();
+                return device.getRamStart();
         }
         return 0;
     }
@@ -99,7 +99,7 @@ public class Devices {
     public long getRamEnd(int deviceID) {
         for (Device device : devices) {
             if (device.getDeviceID() == deviceID)
-                return device.getRam_end();
+                return device.getRamEnd();
         }
         return 0;
     }
@@ -107,7 +107,7 @@ public class Devices {
     public long getFlashStart(int deviceID) {
         for (Device device : devices) {
             if (device.getDeviceID() == deviceID)
-                return device.getFlash_start();
+                return device.getFlashStart();
         }
         return 0;
     }
@@ -115,7 +115,7 @@ public class Devices {
     public long getFlashEnd(int deviceID) {
         for (Device device : devices) {
             if (device.getDeviceID() == deviceID)
-                return device.getFlash_end();
+                return device.getFlashEnd();
         }
         return 0;
     }
@@ -123,7 +123,7 @@ public class Devices {
     public long getOptionStart(int deviceID) {
         for (Device device : devices) {
             if (device.getDeviceID() == deviceID)
-                return device.getOption_start();
+                return device.getOptionStart();
         }
         return 0;
     }
@@ -131,7 +131,7 @@ public class Devices {
     public long getOptionEnd(int deviceID) {
         for (Device device : devices) {
             if (device.getDeviceID() == deviceID)
-                return device.getOption_end();
+                return device.getOptionEnd();
         }
         return 0;
     }
@@ -139,7 +139,7 @@ public class Devices {
     public long getMemoryStart(int deviceID) {
         for (Device device : devices) {
             if (device.getDeviceID() == deviceID)
-                return device.getMem_start();
+                return device.getMemStart();
         }
         return 0;
     }
@@ -147,7 +147,7 @@ public class Devices {
     public long getMemoryEnd(int deviceID) {
         for (Device device : devices) {
             if (device.getDeviceID() == deviceID)
-                return device.getMem_end();
+                return device.getMemEnd();
         }
         return 0;
     }
@@ -155,7 +155,7 @@ public class Devices {
     public int getPagesPerSector(int deviceID) {
         for (Device device : devices) {
             if (device.getDeviceID() == deviceID)
-                return device.getPages_per_sector();
+                return device.getPagesPerSector();
         }
         return 0;
     }
@@ -163,7 +163,23 @@ public class Devices {
     public int getPageSize(int deviceID) {
         for (Device device : devices) {
             if (device.getDeviceID() == deviceID)
-                return device.getPage_size();
+                return device.getPageSize();
+        }
+        return 0;
+    }
+
+    public Device getDevice(int deviceID) {
+        for (Device device : devices) {
+            if (device.getDeviceID() == deviceID)
+                return device;
+        }
+        return null;
+    }
+
+    public long getFlashSize(int deviceID) {
+        for (Device device : devices) {
+            if (device.getDeviceID() == deviceID)
+                return (device.getFlashEnd()-device.getFlashStart())/1024;
         }
         return 0;
     }

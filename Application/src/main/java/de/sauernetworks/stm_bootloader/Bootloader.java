@@ -97,8 +97,6 @@ public class Bootloader {
         mOnWriteMemoryByteListener = listener;
     }
 
-    public Commands commands() { return mCommands; }
-
     public boolean init() throws IOException {
         commandRunning = true;
         byte[] buffer = new byte[1];
@@ -108,16 +106,33 @@ public class Bootloader {
         int numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
         switch (buffer[0]) {
             case Protocol.STM32_ACK:
-                mLog.Log(Constants.DEBUG, "INIT: ACK Received!");
+                mLog.Log(Constants.DEBUG, "INIT: ACK Received! ");
+                /*sendByte(Protocol.STM32_INIT);
+                numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);*/
                 commandRunning = false;
+                /*mLog.Log("TEst: "+String.format("0x%02x", buffer[0]));
+                mmInStream.skip(mmInStream.available());
+                if (buffer[0] == Protocol.STM32_ACK)
+                    return true;
+                else
+                    return false;*/
                 return true;
             case Protocol.STM32_NACK:
-                mLog.Log(Constants.DEBUG, "INIT: NACK Received!");
                 commandRunning = false;
-                return false;
+                mLog.Log(Constants.DEBUG, "INIT: Interface was not closed properly! ");
+                /*sendByte(Protocol.STM32_INIT);
+                numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
+                if (buffer[0] == Protocol.STM32_NACK)
+                    return true;
+                return true;*/
+                return true;
             default:
-                mLog.Log(Constants.ERROR, "INIT: No valid byte received! (" + String.format("0x%02x", buffer[0]) + ")");
                 commandRunning = false;
+                mLog.Log(Constants.ERROR, "INIT: No valid byte received! (" + String.format("0x%02x", buffer[0]) + ")");
+                /*sendByte(Protocol.STM32_INIT);
+                numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
+                if (buffer[0] == Protocol.STM32_NACK)
+                    return true;*/
                 return false;
         }
     }
@@ -248,12 +263,15 @@ public class Bootloader {
                     if (buffer[0] == Protocol.STM32_ACK) {
                         mLog.Log(2, "GID: Command success!");
                         bootloaderGIDRead = true;
-                        bootloaderProductId = gid_buffer.clone();
-                        if (bootloaderProductId.length == 1) {
-                            bootloaderProductName = mDevices.getDeviceName(bootloaderProductId[0] + 0x0400);
+                        bootloaderProductId = new byte[2];
+                        if (gid_buffer.length == 1) {
+                            bootloaderProductId[0] = 0x04;
+                            bootloaderProductId[1] = gid_buffer[0];
                         } else {
-                            bootloaderProductName = mDevices.getDeviceName(bootloaderProductId[0] + bootloaderProductId[1]);
+                            bootloaderProductId[0] = gid_buffer[0];
+                            bootloaderProductId[1] = gid_buffer[1];
                         }
+                        bootloaderProductName = mDevices.getDeviceName(getBootloaderProductId());
                         commandRunning = false;
                         return true;
                     } else {
@@ -294,7 +312,11 @@ public class Bootloader {
             int numRead = readTimeout(buffer, Protocol.STM32_READ_TIMEOUT);
             switch (buffer[0]) {
                 case Protocol.STM32_ACK:
-                    long address = Constants.STM32_START_ADDRESS;
+                    long address = mDevices.getDevice(getBootloaderProductId()).getFlashStart();
+                    if (address <= 0) {
+                        mLog.Log(Constants.ERROR, "GO: Address error. Cant determine flash start!");
+                        return false;
+                    }
                     byte[] buf = new byte[5];
                     buf[0] = (byte) (address >> 24);
                     buf[1] = (byte) ((address >> 16) & 0xFF);
@@ -390,7 +412,11 @@ public class Bootloader {
         boolean error = false;
         mLog.Log("WRITE Command in Progress!");
         if (bootloaderCommandsRead && bootloaderGIDRead) { //TODO command in active  cmds
-            long address = Constants.STM32_START_ADDRESS; //todo address from devices
+            long address = mDevices.getDevice(getBootloaderProductId()).getFlashStart();
+            if (address <= 0) {
+                mLog.Log(Constants.ERROR, "WRITE: Error. Cannot determine flash start address");
+                return false;
+            }
             BufferedInputStream firmwareBuf;
             long[] errBuff = new long[3];
             //String path = mContext.getFilesDir().toString() + "/" + Constants.FIRMWARE_FILENAME;
@@ -525,7 +551,7 @@ public class Bootloader {
         }
     }
 
-    public int readMemory() throws IOException {
+    public int readMemory() throws IOException { // TODO add return values for the different errors
         commandRunning = false;
         byte[] buffer = new byte[1];
         int numRead;
@@ -534,8 +560,12 @@ public class Bootloader {
         int read_pages = 0;
         if (bootloaderCommandsRead && bootloaderGIDRead) {
             //mHandler.obtainMessage(Constants.MESSAGE_READ_MEMORY_START).sendToTarget();
-            long address = Constants.STM32_START_ADDRESS; // TODO: Start adress and page count from devices
-            int emptyBytes = 0; // TODO check empty bytes
+            long address = mDevices.getDevice(getBootloaderProductId()).getFlashStart(); //Constants.STM32_START_ADDRESS; // TODO: Start adress and page count from devices
+            if (address <= 0) {
+                mLog.Log(Constants.ERROR, "READ: Error on getting Flash start Address!");
+                return 0;
+            }
+            int emptyBytes = 0;
             for (int page = 0; page < Protocol.STM32_PAGE_COUNT; page++) {
                 if (emptyBytes > skipReadOutBytes && !fullRead) {
                     mLog.LogF("READ: Read " + String.valueOf(skipReadOutBytes) + " bytes of 0xff. Only empty bytes follow!");
@@ -695,8 +725,11 @@ public class Bootloader {
         return bootloaderCommandCount;
     }
 
-    public byte[] getBootloaderProductId() {
-        return bootloaderProductId;
+    public int getBootloaderProductId() {
+        if (bootloaderProductId.length > 1)
+            return (bootloaderProductId[0] << 8) + bootloaderProductId[1];
+        else
+            return bootloaderProductId[0];
     }
 
     public byte[] getBootloaderReadProtection() {
@@ -766,6 +799,10 @@ public class Bootloader {
 
     public boolean getFullReadMemory() {
         return fullRead;
+    }
+
+    public Devices getDevices() {
+        return mDevices;
     }
 }
 
